@@ -10,6 +10,7 @@ import { OrderItem } from '../../entities/order-item.entity';
 import { Product } from '../../entities/product.entity';
 import { Customer } from '../../entities/customer.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { MidtransService } from '../midtrans/midtrans.service'; // import MidtransService
 
 @Injectable()
 export class OrdersService {
@@ -25,6 +26,8 @@ export class OrdersService {
 
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
+
+    private readonly midtransService: MidtransService,
   ) {}
 
   async generateOrderNumber(): Promise<string> {
@@ -46,7 +49,7 @@ export class OrdersService {
     return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
   }
 
-  async create(dto: CreateOrderDto): Promise<Order> {
+  async create(dto: CreateOrderDto): Promise<{ order: Order; snapToken: string }> {
     const customer = await this.customerRepo.findOne({
       where: { id: dto.customerId },
     });
@@ -92,7 +95,15 @@ export class OrdersService {
       items: orderItems,
     });
 
-    return this.orderRepo.save(order);
+    const savedOrder = await this.orderRepo.save(order);
+
+    // ✅ Setelah simpan order ke DB, langsung buat Snap Token
+    const snapToken = await this.midtransService.generateSnapToken(
+      savedOrder.orderNumber,
+      total,
+    );
+
+    return { order: savedOrder, snapToken };
   }
 
   async findAll(): Promise<{ data: Order[] }> {
@@ -117,5 +128,14 @@ export class OrdersService {
     if (result.affected === 0) {
       throw new NotFoundException('Order not found');
     }
+  }
+
+  // untuk midtrans service
+  async updateOrderStatus(orderNumber: string, status: string): Promise<void> {
+    const order = await this.orderRepo.findOne({ where: { orderNumber } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    order.status = status;
+    await this.orderRepo.save(order);
   }
 }

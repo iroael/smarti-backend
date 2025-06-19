@@ -30,7 +30,8 @@ export class OrdersController {
   @ApiResponse({ status: 201, description: 'Order created successfully', type: Order })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  create(@Body() dto: CreateOrderDto): Promise<Order> {
+  // create(@Body() dto: CreateOrderDto): Promise<Order> {
+  async create(@Body() dto: CreateOrderDto): Promise<{ order: Order; snapToken: string }> {
     return this.ordersService.create(dto);
   }
 

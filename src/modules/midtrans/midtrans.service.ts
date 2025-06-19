@@ -14,11 +14,12 @@ export class MidtransService {
     });
   }
 
-  async generateSnapToken(orderId: string, grossAmount: number) {
+ async generateSnapToken(orderId: string, amount: string | number) {
+    const amountInt = parseInt(amount.toString());
     const parameter = {
       transaction_details: {
         order_id: orderId,
-        gross_amount: grossAmount,
+        gross_amount: amountInt,
       },
       credit_card: {
         secure: true,

@@ -1,0 +1,157 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Put,
+  Delete,
+  Patch,
+  NotFoundException,
+  UseGuards,
+  ParseIntPipe,
+  Request,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
+import { CustomersService } from './customers.service';
+import { Customer } from '../../entities/customer.entity';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { AddCustomerAddressDto } from './dto/add-customer-address.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+
+@ApiTags('Customers')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('customers')
+export class CustomersController {
+  private readonly logger = new Logger(CustomersController.name);
+
+  constructor(private readonly customersService: CustomersService) {}
+
+  private sanitizeCustomer(customer: Customer) {
+    const { account, ...rest } = customer;
+    return rest;
+  }
+
+  private validateAccess(requestUser: any, targetUserId: number) {
+    if (requestUser.role !== Role.Admin && requestUser.id !== targetUserId) {
+      this.logger.warn(`Unauthorized access attempt by user ${requestUser.id}`);
+      throw new ForbiddenException('Access denied');
+    }
+  }
+
+  @Get()
+  @Roles(Role.Admin)
+  @ApiOperation({ summary: 'Get all customers (admin only)' })
+  @ApiResponse({ status: 200, description: 'List of customers', type: [Customer] })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async findAll() {
+    const customers = await this.customersService.findAll();
+    return { data: customers.map(this.sanitizeCustomer) };
+  }
+
+  @Get('me')
+  @Roles(Role.Customer)
+  @ApiOperation({ summary: 'Get currently logged-in customer' })
+  @ApiResponse({ status: 200, description: 'Current customer', type: Customer })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMe(@Request() req) {
+    console.log('getMe called with user:', req.user);
+    const customer = await this.customersService.findOne(req.user.id);
+    if (!customer) throw new NotFoundException('Customer not found');
+    return this.sanitizeCustomer(customer);
+  }
+
+  @Get(':id')
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'Get customer by ID' })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({ status: 200, description: 'Customer found', type: Customer })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    this.validateAccess(req.user, id);
+    const customer = await this.customersService.findOne(id);
+    if (!customer) throw new NotFoundException('Customer not found');
+    return this.sanitizeCustomer(customer);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create new customer' })
+  @ApiResponse({ status: 201, description: 'Customer created', type: Customer })
+  async create(@Body() dto: CreateCustomerDto) {
+    const customer = await this.customersService.create(dto);
+    return this.sanitizeCustomer(customer);
+  }
+
+  @Put(':id')
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'Update customer by ID' })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({ status: 200, description: 'Customer updated', type: Customer })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCustomerDto,
+    @Request() req,
+  ) {
+    this.validateAccess(req.user, id);
+    const existing = await this.customersService.findOne(id);
+    if (!existing) throw new NotFoundException('Customer not found');
+    const updated = await this.customersService.update(id, dto);
+    return this.sanitizeCustomer(updated);
+  }
+
+  @Delete(':id')
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'Delete customer by ID' })
+  @ApiResponse({ status: 200, description: 'Customer deleted' })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    this.validateAccess(req.user, id);
+    const existing = await this.customersService.findOne(id);
+    if (!existing) throw new NotFoundException('Customer not found');
+    const deleted = await this.customersService.remove(id);
+    return this.sanitizeCustomer(deleted);
+  }
+
+  @Post(':id/addresses')
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'Add a new address for customer' })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({ status: 201, description: 'Address added' })
+  async addAddress(
+    @Param('id', ParseIntPipe) customerId: number,
+    @Body() dto: AddCustomerAddressDto,
+    @Request() req,
+  ) {
+    this.validateAccess(req.user, customerId);
+    return this.customersService.addAddress(customerId, dto);
+  }
+
+  @Patch(':customerId/addresses/:addressId/default')
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'Set customer address as default' })
+  @ApiParam({ name: 'customerId', description: 'Customer ID' })
+  @ApiParam({ name: 'addressId', description: 'Address ID' })
+  @ApiResponse({ status: 200, description: 'Default address updated' })
+  async setDefaultAddress(
+    @Param('customerId', ParseIntPipe) customerId: number,
+    @Param('addressId', ParseIntPipe) addressId: number,
+    @Request() req,
+  ) {
+    this.validateAccess(req.user, customerId);
+    return this.customersService.setDefaultAddress(customerId, addressId);
+  }
+}

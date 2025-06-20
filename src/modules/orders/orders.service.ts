@@ -97,11 +97,16 @@ export class OrdersService {
 
     const savedOrder = await this.orderRepo.save(order);
 
-    // ✅ Setelah simpan order ke DB, langsung buat Snap Token
-    const snapToken = await this.midtransService.generateSnapToken(
-      savedOrder.orderNumber,
-      total,
-    );
+    // Setelah simpan order ke DB, langsung buat Snap Token
+    const snapToken = await this.midtransService.generateSnapToken({
+      orderId: savedOrder.orderNumber,
+      amount: total,
+      customer: {
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+      },
+    });
 
     return { order: savedOrder, snapToken };
   }
@@ -131,6 +136,13 @@ export class OrdersService {
   }
 
   // untuk midtrans service
+  async findOrderById(orderNumber: string): Promise<Order | null> {
+    return this.orderRepo.findOne({
+      where: { orderNumber },
+      relations: ['customer'], // pastikan include customer relation
+    });
+  }
+
   async updateOrderStatus(orderNumber: string, status: string): Promise<void> {
     const order = await this.orderRepo.findOne({ where: { orderNumber } });
     if (!order) throw new NotFoundException('Order not found');

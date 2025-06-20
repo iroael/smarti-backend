@@ -1,29 +1,49 @@
-import { Controller, Get, Query, Post, Req, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, Post, Req, Res, HttpStatus, Logger } from '@nestjs/common';
 import { MidtransService } from './midtrans.service';
-import { Request, Response } from 'express';
 import { OrdersService } from '../orders/orders.service';
+import { Request, Response } from 'express';
 
 @Controller('midtrans')
 export class MidtransController {
+  private readonly logger = new Logger(MidtransController.name);
+
   constructor(
     private readonly midtransService: MidtransService,
-    private readonly orderService: OrdersService, // service kamu untuk update order
+    private readonly ordersService: OrdersService,
   ) {}
 
   @Get('token')
-  async getSnapToken(@Query('orderId') orderId: string, @Query('amount') amount: string) {
-    const token = await this.midtransService.generateSnapToken(orderId, parseInt(amount));
+  async getSnapToken(@Query('orderId') orderId: string) {
+    const order = await this.ordersService.findOrderById(orderId);
+    if (!order) {
+        return { error: 'Order not found' };
+    }
+
+    const token = await this.midtransService.generateSnapToken({
+        orderId: order.orderNumber,
+        amount: order.total,
+        customer: {
+        name: order.customer.name,
+        email: order.customer.email,
+        phone: order.customer.phone,
+        },
+    });
+
     return { token };
   }
 
   @Post('webhook')
   async webhookHandler(@Req() req: Request, @Res() res: Response) {
-    const notification = req.body;
-    const { orderId, status } = await this.midtransService.handleWebhook(notification);
+    try {
+      const notification = req.body;
+      const { orderId, status } = await this.midtransService.handleWebhook(notification);
 
-    // Update order status di database kamu
-    await this.orderService.updateOrderStatus(orderId, status);
-
-    res.status(HttpStatus.OK).json({ received: true });
+      await this.ordersService.updateOrderStatus(orderId, status);
+      this.logger.log(`Updated order ${orderId} to status ${status}`);
+      return res.status(HttpStatus.OK).json({ received: true });
+    } catch (error) {
+      this.logger.error('Webhook processing failed', error);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Processing failed' });
+    }
   }
 }

@@ -8,26 +8,33 @@ export class MidtransService {
 
   constructor() {
     this.snap = new midtransClient.Snap({
-      isProduction: false, // Ganti true jika sudah production
+      isProduction: false,
       serverKey: 'SB-Mid-server-DoA5vmaNj_2fgp4G7Q42xhR1',
       clientKey: 'SB-Mid-client-Q--Pt3_jAV6r0W8r',
     });
   }
 
- async generateSnapToken(orderId: string, amount: string | number) {
-    const amountInt = parseInt(amount.toString());
+  async generateSnapToken(params: {
+    orderId: string;
+    amount: number;
+    customer: {
+      name: string;
+      email: string;
+      phone: string;
+    };
+  }): Promise<string> {
     const parameter = {
       transaction_details: {
-        order_id: orderId,
-        gross_amount: amountInt,
+        order_id: params.orderId,
+        gross_amount: Math.floor(params.amount), // Harus integer, IDR tidak boleh ada koma
       },
       credit_card: {
         secure: true,
       },
       customer_details: {
-        first_name: 'Nama Customer',
-        email: 'email@example.com',
-        phone: '08123456789',
+        first_name: params.customer.name,
+        email: params.customer.email,
+        phone: params.customer.phone,
       },
     };
 
@@ -40,17 +47,17 @@ export class MidtransService {
     }
   }
 
-  async handleWebhook(notification: any): Promise<{ orderId: string; status: string }> {
-    const transactionStatus = notification.transaction_status;
+  async handleWebhook(notification: any) {
     const orderId = notification.order_id;
+    const transactionStatus = notification.transaction_status;
 
-    let status = 'UNPAID';
-    if (transactionStatus === 'settlement') {
-      status = 'PAID';
-    } else if (transactionStatus === 'cancel' || transactionStatus === 'expire' || transactionStatus === 'failure') {
-      status = 'FAILED';
-    } else if (transactionStatus === 'pending') {
-      status = 'PENDING';
+    let status = 'pending';
+    if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
+      status = 'paid';
+    } else if (transactionStatus === 'expire') {
+      status = 'expired';
+    } else if (transactionStatus === 'cancel' || transactionStatus === 'deny') {
+      status = 'failed';
     }
 
     return { orderId, status };

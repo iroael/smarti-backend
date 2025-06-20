@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { Account } from 'src/entities/account.entity';
 import { Customer } from 'src/entities/customer.entity';
+import { Role } from 'src/common/enums/role.enum'
 
 @Injectable()
 export class AuthService {
@@ -39,12 +40,27 @@ export class AuthService {
       role: account.role,
     };
 
+    let name = 'Unknown';
+    let npwp = '';
+
+    if (account.role === Role.Customer && account.customer) {
+      name = account.customer.name;
+      npwp = account.customer.npwp;
+    } else if (account.role === Role.Supplier && account.supplier) {
+      name = account.supplier.name;
+    } else if (account.role === Role.Admin && account.user) {
+      name = account.user.name;
+      // jika admin tidak punya npwp, biarkan null
+    }
+
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: account.id,
         email: account.email,
         role: account.role,
+        name,
+        npwp, // <-- ditambahkan di response
       },
     };
   }

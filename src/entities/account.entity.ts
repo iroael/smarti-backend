@@ -32,7 +32,10 @@ export class Account {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Supplier, { nullable: true })
+  @ManyToOne(() => Supplier, {
+    nullable: true,
+    onDelete: 'SET NULL', // atau 'CASCADE' jika ingin hapus otomatis account-nya juga
+  })
   @JoinColumn({ name: 'supplier_id' })
   supplier: Supplier;
 

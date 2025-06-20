@@ -38,19 +38,24 @@ export class AuthService {
       sub: account.id,
       email: account.email,
       role: account.role,
+      customerId: account.customer?.id ?? null,
+      supplierId: account.supplier?.id ?? null,
     };
 
-    let name = 'Unknown';
-    let npwp = '';
+    let name = '';
+    let npwp: string | null = null;
 
-    if (account.role === Role.Customer && account.customer) {
-      name = account.customer.name;
-      npwp = account.customer.npwp;
-    } else if (account.role === Role.Supplier && account.supplier) {
-      name = account.supplier.name;
-    } else if (account.role === Role.Admin && account.user) {
-      name = account.user.name;
-      // jika admin tidak punya npwp, biarkan null
+    switch (account.role) {
+      case Role.Customer:
+        name = account.customer?.name ?? '';
+        npwp = account.customer?.npwp ?? null;
+        break;
+      case Role.Supplier:
+        name = account.supplier?.name ?? '';
+        break;
+      case Role.Admin:
+        name = account.user?.name ?? '';
+        break;
     }
 
     return {
@@ -60,7 +65,7 @@ export class AuthService {
         email: account.email,
         role: account.role,
         name,
-        npwp, // <-- ditambahkan di response
+        npwp, // hanya muncul jika ada
       },
     };
   }

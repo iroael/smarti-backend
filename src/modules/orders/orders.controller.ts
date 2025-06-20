@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -17,10 +18,15 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Order } from 'src/entities/order.entity';
+import { Request } from 'express';
+import { Req } from '@nestjs/common';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
 
 @ApiTags('Orders')
 @ApiBearerAuth() // Swagger support for JWT
-@UseGuards(JwtAuthGuard) // Protect all routes
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
@@ -36,7 +42,8 @@ export class OrdersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all orders' })
+  @Roles(Role.Admin, Role.Customer)
+  @ApiOperation({ summary: 'List all orders (admin) or own orders (customer)' })
   @ApiResponse({
     status: 200,
     description: 'List of orders',
@@ -72,8 +79,24 @@ export class OrdersController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(): Promise<{ data: Order[] }> {
-    return this.ordersService.findAll();
+  @ApiResponse({ status: 403, description: 'Forbidden Resource' })
+  @ApiResponse({ status: 500, description: 'Internal Server Error' })
+  async findAll(@Req() req: Request) {
+    const user = req.user as any;
+
+    if (!user || !user.role) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    if (user.role === Role.Admin || user.role === Role.Superadmin) {
+      return this.ordersService.findAll(); // Admin gets all orders
+    }
+
+    if (user.role === Role.Customer && user.customerId) {
+      return this.ordersService.findAllByCustomer(user.customerId); // Customer gets only their orders
+    }
+
+    throw new UnauthorizedException('Role not allowed');
   }
 
   @Get(':id')

@@ -11,6 +11,7 @@ import { Product } from '../../entities/product.entity';
 import { Customer } from '../../entities/customer.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MidtransService } from '../midtrans/midtrans.service'; // import MidtransService
+import { OrderStatus } from 'src/common/enums/order-status.enum';
 
 @Injectable()
 export class OrdersService {
@@ -90,7 +91,7 @@ export class OrdersService {
       customer,
       orderNumber,
       orderDate: new Date(),
-      status: 'pending',
+      status: OrderStatus.PENDING,
       total,
       items: orderItems,
     });
@@ -111,8 +112,19 @@ export class OrdersService {
     return { order: savedOrder, snapToken };
   }
 
+  // Semua order (untuk Admin)
   async findAll(): Promise<{ data: Order[] }> {
     const orders = await this.orderRepo.find({
+      relations: ['customer', 'items', 'items.product'],
+      order: { orderDate: 'DESC' },
+    });
+    return { data: orders };
+  }
+
+  // Hanya order milik customer tertentu
+  async findAllByCustomer(customerId: number): Promise<{ data: Order[] }> {
+    const orders = await this.orderRepo.find({
+      where: { customer: { id: customerId } },
       relations: ['customer', 'items', 'items.product'],
       order: { orderDate: 'DESC' },
     });
@@ -142,12 +154,17 @@ export class OrdersService {
       relations: ['customer'], // pastikan include customer relation
     });
   }
-
+  
   async updateOrderStatus(orderNumber: string, status: string): Promise<void> {
     const order = await this.orderRepo.findOne({ where: { orderNumber } });
     if (!order) throw new NotFoundException('Order not found');
 
-    order.status = status;
+    // Validasi apakah status termasuk enum OrderStatus
+    if (!Object.values(OrderStatus).includes(status as OrderStatus)) {
+      throw new BadRequestException(`Invalid order status: ${status}`);
+    }
+
+    order.status = status as OrderStatus;
     await this.orderRepo.save(order);
   }
 }

@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  ManyToOne,
   OneToOne,
   JoinColumn,
 } from 'typeorm';
@@ -30,18 +29,15 @@ export class Account {
 
   @OneToOne(() => User, (user) => user.account, { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user?: User;
 
-  @ManyToOne(() => Supplier, {
-    nullable: true,
-    onDelete: 'SET NULL', // atau 'CASCADE' jika ingin hapus otomatis account-nya juga
-  })
+  // Jika satu account hanya bisa milik satu supplier, gunakan OneToOne
+  @OneToOne(() => Supplier, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'supplier_id' })
-  supplier: Supplier;
+  supplier?: Supplier;
 
-  @OneToOne(() => Customer, (customer) => customer.account, { nullable: true })
-  @JoinColumn({ name: 'customer_id' })
-  customer: Customer;
+  @Column({ type: 'int', nullable: true })
+  customer_id?: number;
 
   @CreateDateColumn()
   created_at: Date;

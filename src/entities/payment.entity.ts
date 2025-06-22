@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { Order } from './order.entity';
 
-@Entity()
+@Entity('payment')
 export class Payment {
   @PrimaryGeneratedColumn()
   id: number;

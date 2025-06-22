@@ -5,7 +5,11 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { Account } from 'src/entities/account.entity';
 import { Customer } from 'src/entities/customer.entity';
-import { Role } from 'src/common/enums/role.enum'
+import { BankAccount } from 'src/entities/bank-account.entity';
+import { CustomerAddress } from 'src/entities/customer-address.entity';
+import { Addresses } from 'src/entities/address.entity';
+import { TaxIdentification } from 'src/entities/tax-identifications.entity';
+import { Role } from 'src/common/enums/role.enum';
 
 @Injectable()
 export class AuthService {
@@ -16,13 +20,25 @@ export class AuthService {
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
 
+    @InjectRepository(CustomerAddress)
+    private customerAddressRepository: Repository<CustomerAddress>,
+
+    @InjectRepository(BankAccount)
+    private bankAccountRepo: Repository<BankAccount>,
+
+    @InjectRepository(Addresses)
+    private supplierAddressRepo: Repository<Addresses>,
+
+    @InjectRepository(TaxIdentification)
+    private taxRepo: Repository<TaxIdentification>,
+
     private readonly jwtService: JwtService,
   ) {}
 
   async login(email: string, password: string): Promise<any> {
     const account = await this.accountRepository.findOne({
       where: { email },
-      relations: ['customer', 'supplier', 'user'],
+      relations: ['supplier', 'user'], // 'customer' dihapus karena sudah bukan relasi
     });
 
     if (!account) {
@@ -34,11 +50,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    let customer: Customer | null = null;
+    if (account.role === Role.Customer && account.customer_id) {
+      customer = await this.customerRepository.findOne({
+        where: { id: account.customer_id },
+      });
+    }
+
     const payload = {
       sub: account.id,
       email: account.email,
       role: account.role,
-      customerId: account.customer?.id ?? null,
+      customerId: account.customer_id ?? null,
       supplierId: account.supplier?.id ?? null,
     };
 
@@ -47,8 +70,8 @@ export class AuthService {
 
     switch (account.role) {
       case Role.Customer:
-        name = account.customer?.name ?? '';
-        npwp = account.customer?.npwp ?? null;
+        name = customer?.name ?? '';
+        npwp = customer?.npwp ?? null;
         break;
       case Role.Supplier:
         name = account.supplier?.name ?? '';
@@ -65,7 +88,7 @@ export class AuthService {
         email: account.email,
         role: account.role,
         name,
-        npwp, // hanya muncul jika ada
+        npwp,
       },
     };
   }
@@ -73,22 +96,74 @@ export class AuthService {
   async getProfile(accountId: number) {
     const account = await this.accountRepository.findOne({
       where: { id: accountId },
-      relations: ['customer', 'supplier', 'user'],
+      relations: ['supplier', 'user'], // relasi customer tidak diperlukan
     });
 
     if (!account) throw new UnauthorizedException('User not found');
 
-    // Return detail based on role
+    let profile: any = null;
+    let taxData: TaxIdentification | null = null;
+    let bankAccounts: BankAccount[] = [];
+
+    if (account.role === Role.Customer && account.customer_id) {
+      profile = await this.customerRepository.findOne({
+        where: { id: account.customer_id },
+        relations: ['addresses'],
+      });
+
+      taxData = await this.taxRepo.findOne({
+        where: {
+          ownerType: 'customer',
+          ownerId: account.customer_id,
+        },
+      });
+
+      bankAccounts = await this.bankAccountRepo.find({
+        where: {
+          ownerType: 'customer',
+          ownerId: account.customer_id,
+        },
+      });
+    } else if (account.role === Role.Supplier && account.supplier?.id) {
+      const supplierId = account.supplier.id;
+
+      profile = account.supplier;
+
+      // Manual load addresses if not using relation
+      const addresses = await this.supplierAddressRepo.find({
+        where: {
+          ownerType: 'supplier',
+          ownerId: supplierId,
+        },
+      });
+
+      profile.addresses = addresses;
+
+      taxData = await this.taxRepo.findOne({
+        where: {
+          ownerType: 'supplier',
+          ownerId: account.supplier.id,
+        },
+      });
+
+      bankAccounts = await this.bankAccountRepo.find({
+        where: {
+          ownerType: 'supplier',
+          ownerId: account.supplier.id,
+        },
+      });
+    } else {
+      profile = account.user;
+    }
+
     return {
       id: account.id,
       email: account.email,
       role: account.role,
-      profile:
-        account.role === 'customer'
-          ? account.customer
-          : account.role === 'supplier'
-          ? account.supplier
-          : account.user,
+      profile,
+      taxData,
+      bankAccounts,
     };
   }
+
 }

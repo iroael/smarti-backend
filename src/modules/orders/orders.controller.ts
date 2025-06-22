@@ -33,6 +33,7 @@ export class OrdersController {
 
   @Post()
   @ApiOperation({ summary: 'Create new order' })
+  @Roles(Role.Admin, Role.Customer, Role.Supplier)
   @ApiResponse({ status: 201, description: 'Order created successfully', type: Order })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
@@ -42,7 +43,7 @@ export class OrdersController {
   }
 
   @Get()
-  @Roles(Role.Admin, Role.Customer)
+  @Roles(Role.Admin, Role.Customer, Role.Supplier)
   @ApiOperation({ summary: 'List all orders (admin) or own orders (customer)' })
   @ApiResponse({
     status: 200,
@@ -96,10 +97,42 @@ export class OrdersController {
       return this.ordersService.findAllByCustomer(user.customerId); // Customer gets only their orders
     }
 
+    if (user.role === Role.Supplier && user.supplierId) {
+      return this.ordersService.findAllBySupplier(user.supplierId); // Customer gets only their orders
+    }
+
     throw new UnauthorizedException('Role not allowed');
   }
 
+  @Get('me')
+  // @Roles(Role.Customer, Role.Supplier)
+  @ApiOperation({ summary: 'Get orders for the logged-in customer' })
+  async findMyOrders(@Req() req: Request) {
+    const user = req.user as any
+    console.log('order.controller findMyOrder', user.customerId)
+    // console.log('order.controller req', req.user.supplierId)
+    if (!user || !user.customerId) {
+      throw new UnauthorizedException('Customer ID not found in token');
+    }
+
+    return this.ordersService.findMyOrders(user.customerId)
+  }
+
+  @Get('incoming')
+  @Roles(Role.Supplier)
+  @ApiOperation({ summary: 'Get incoming orders for the logged-in supplier' })
+  async findIncomingOrders(@Req() req: Request) {
+    const user = req.user as any
+    console.log('order.controller => ',user)
+    if (!user || !user.supplierId) {
+      throw new UnauthorizedException('Supplier ID not found in token');
+    }
+
+    return this.ordersService.findIncoming(user.supplierId)
+  }
+
   @Get(':id')
+  @Roles(Role.Admin, Role.Customer, Role.Supplier)
   @ApiOperation({ summary: 'Get order by ID' })
   @ApiResponse({ status: 200, description: 'Order found', type: Order })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

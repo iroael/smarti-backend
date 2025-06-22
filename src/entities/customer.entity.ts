@@ -2,6 +2,7 @@ import { Entity, JoinColumn, PrimaryGeneratedColumn, Column, CreateDateColumn, O
 import { Order } from './order.entity';
 import { Account } from './account.entity';
 import { CustomerAddress } from './customer-address.entity';
+import { BankAccount } from './bank-account.entity';
 
 @Entity()
 export class Customer {
@@ -38,16 +39,9 @@ export class Customer {
   @OneToMany(() => Order, (order) => order.customer)
   orders: Order[];
 
-  @OneToOne(() => Account, (account) => account.customer, {
-    cascade: true,
-    nullable: true,
-  })
-  @JoinColumn()
-  account?: Account;
-
   @OneToMany(() => CustomerAddress, (addr) => addr.customer, {
     cascade: true,
   })
   addresses: CustomerAddress[];
-
+  
 }

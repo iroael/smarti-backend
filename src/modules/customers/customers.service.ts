@@ -5,9 +5,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Customer } from '../../entities/customer.entity';
 import { CustomerAddress } from 'src/entities/customer-address.entity';
+import { BankAccount } from 'src/entities/bank-account.entity';
+import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { Account } from 'src/entities/account.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -24,17 +26,81 @@ export class CustomersService {
 
     @InjectRepository(CustomerAddress)
     private customerAddressRepository: Repository<CustomerAddress>,
+
+    @InjectRepository(BankAccount)
+    private bankAccountRepo: Repository<BankAccount>,
+
+    @InjectRepository(TaxIdentification)
+    private taxRepo: Repository<TaxIdentification>,
   ) {}
 
-  async findAll(): Promise<Customer[]> {
-    return this.customerRepository.find({ relations: ['addresses'] });
+  // Helper to group array by key
+  private groupBy<T>(array: T[], keyFn: (item: T) => string | number): Record<string, T[]> {
+    return array.reduce((acc, item) => {
+      const key = keyFn(item);
+      acc[key] = acc[key] || [];
+      acc[key].push(item);
+      return acc;
+    }, {} as Record<string, T[]>);
   }
 
-  async findOne(id: number): Promise<Customer | null> {
-    return this.customerRepository.findOne({
+  async findAll(): Promise<any[]> {
+    const customers = await this.customerRepository.find({
+      relations: ['addresses'],
+    });
+
+    const customerIds = customers.map((c) => c.id);
+
+    const taxList = await this.taxRepo.find({
+      where: {
+        ownerType: 'customer',
+        ownerId: In(customerIds),
+      },
+    });
+
+    const bankList = await this.bankAccountRepo.find({
+      where: {
+        ownerType: 'customer',
+        ownerId: In(customerIds),
+      },
+    });
+
+    const taxGrouped = this.groupBy(taxList, (tax) => tax.ownerId);
+    const bankGrouped = this.groupBy(bankList, (bank) => bank.ownerId);
+
+    return customers.map((customer) => ({
+      ...customer,
+      tax: taxGrouped[customer.id] || [],
+      bank: bankGrouped[customer.id] || [],
+    }));
+  }
+
+  async findOne(id: number): Promise<Customer & { tax?: TaxIdentification, bankAccounts?: BankAccount[] }> {
+    const customer = await this.customerRepository.findOne({
       where: { id },
       relations: ['addresses'],
     });
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const taxData = await this.taxRepo.findOne({
+      where: {
+        ownerType: 'customer',
+        ownerId: id,
+      },
+    });
+
+    const bankAccounts = await this.bankAccountRepo.find({
+      where: {
+        ownerType: 'customer',
+        ownerId: id,
+      },
+    });
+
+    return {
+      ...customer,
+      tax: taxData ?? undefined, // ✅ null diubah jadi undefined
+      bankAccounts,
+    };
   }
 
   async findByEmail(email: string): Promise<Customer | null> {
@@ -62,7 +128,7 @@ export class CustomersService {
       name: dto.name,
       email: dto.email,
       phone: dto.phone,
-      npwp: dto.npwp,
+      npwp: dto.tax?.taxNumber,
       address: dto.address,
       city: dto.city,
       province: dto.province,
@@ -83,6 +149,36 @@ export class CustomersService {
     });
     await this.customerAddressRepository.save(defaultAddress);
 
+    if (dto.tax) {
+      const tax = this.taxRepo.create({
+        taxType: dto.tax.taxType,
+        taxNumber: dto.tax.taxNumber,
+        taxName: dto.tax.taxName,
+        registeredAddress: dto.tax.registeredAddress,
+        isActive: dto.tax.isActive ?? true,
+        isPrimary: dto.tax.isPrimary ?? false,
+        ownerType: 'customer', // ✅ Required field
+        ownerId: savedCustomer.id, // ✅ Required field
+      });
+      await this.taxRepo.save(tax);
+    }
+
+    // ✅ Save Bank Accounts EXPLICITLY with required fields
+    if (dto.bankAccounts && dto.bankAccounts.length > 0) {
+      const banks = dto.bankAccounts.map((bank) =>
+        this.bankAccountRepo.create({
+          bankName: bank.bankName,
+          accountNumber: bank.accountNumber,
+          accountName: bank.accountName,
+          branch: bank.branch,
+          isPrimary: bank.isPrimary ?? false,
+          ownerType: 'customer', // ✅ Required field
+          ownerId: savedCustomer.id, // ✅ Required field
+        }),
+      );
+      await this.bankAccountRepo.save(banks);
+    }
+
     // Simpan akun login
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
@@ -91,7 +187,7 @@ export class CustomersService {
       email: dto.email,
       password: passwordHash,
       role: 'customer',
-      customer: savedCustomer,
+      customer_id: savedCustomer.id,
     });
 
     await this.accountRepository.save(account);
@@ -101,17 +197,95 @@ export class CustomersService {
 
   async update(id: number, dto: UpdateCustomerDto): Promise<Customer> {
     const customer = await this.findOne(id);
-    if (!customer) throw new NotFoundException('Customer not found');
+    if (!customer) throw new NotFoundException('Supplier not found');
 
-    Object.assign(customer, dto);
-    return this.customerRepository.save(customer);
+    const { tax, bankAccounts, ...customerData } = dto;
+
+    Object.assign(customer, customerData);
+    await this.customerRepository.save(customer);
+
+    // Update or create tax info
+    if (tax) {
+      const existingTax = await this.taxRepo.findOne({
+        where: {
+          ownerType: 'customer',
+          ownerId: customer.id,
+        },
+      });
+
+      if (existingTax) {
+        Object.assign(existingTax, {
+          taxType: tax.taxType,
+          taxNumber: tax.taxNumber,
+          taxName: tax.taxName,
+          registeredAddress: tax.registeredAddress,
+          isActive: tax.isActive,
+          isPrimary: tax.isPrimary,
+        });
+        await this.taxRepo.save(existingTax);
+      } else {
+        const newTax = this.taxRepo.create({
+          taxType: tax.taxType,
+          taxNumber: tax.taxNumber,
+          taxName: tax.taxName,
+          registeredAddress: tax.registeredAddress,
+          isActive: tax.isActive ?? true,
+          isPrimary: tax.isPrimary ?? false,
+          ownerType: 'customer',
+          ownerId: customer.id,
+        });
+        await this.taxRepo.save(newTax);
+      }
+    }
+
+    // Replace all bank accounts
+    if (bankAccounts && bankAccounts.length > 0) {
+      await this.bankAccountRepo.delete({
+        ownerType: 'customer',
+        ownerId: customer.id,
+      });
+
+      const newBankAccounts = bankAccounts.map((bank) =>
+        this.bankAccountRepo.create({
+          bankName: bank.bankName,
+          accountNumber: bank.accountNumber,
+          accountName: bank.accountName,
+          branch: bank.branch,
+          isPrimary: bank.isPrimary ?? false,
+          ownerType: 'customer',
+          ownerId: customer.id,
+        }),
+      );
+
+      await this.bankAccountRepo.save(newBankAccounts);
+    }
+
+    return this.findOne(id);
   }
 
-  async remove(id: number): Promise<Customer> {
+  async remove(id: number): Promise<void> {
     const customer = await this.findOne(id);
     if (!customer) throw new NotFoundException('Customer not found');
-    await this.customerRepository.remove(customer);
-    return customer;
+
+    await this.bankAccountRepo.delete({
+      ownerType: 'customer',
+      ownerId: id,
+    });
+
+    await this.taxRepo.delete({
+      ownerType: 'customer',
+      ownerId: id,
+    });
+
+    // Hapus semua alamat customer
+    await this.customerAddressRepository.delete({
+      customer: { id },
+    });
+
+    // Optional: hapus akun jika ada entitas account
+    await this.accountRepository.delete({ customer_id: id }); // <-- Pastikan ini sesuai struktur kamu
+
+    await this.customerRepository.delete(id);
   }
 
   // ✅ Tambahkan alamat baru ke customer

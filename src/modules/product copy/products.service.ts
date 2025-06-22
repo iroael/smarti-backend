@@ -11,19 +11,6 @@ import { CustomerSupplierAccess } from 'src/entities/customer-supplier-access.en
 import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.entity';
 import { Role } from 'src/common/enums/role.enum';
 
-// Enum untuk tipe produk yang ingin ditampilkan
-export enum ProductViewType {
-  MY_PRODUCTS = 'my_products',        // Produk milik sendiri
-  CATALOG = 'catalog',                // Produk katalog (dari supplier lain)
-  ALL = 'all',                        // Semua produk (untuk admin)
-  SPECIFIC_SUPPLIER = 'specific_supplier' // Produk dari supplier tertentu
-}
-
-interface FindProductsOptions {
-  viewType: ProductViewType;
-  specificSupplierId?: number; // Untuk ProductViewType.SPECIFIC_SUPPLIER
-}
-
 @Injectable()
 export class ProductService {
   constructor(
@@ -38,148 +25,6 @@ export class ProductService {
     @InjectRepository(SupplierSupplierAccess)
     private readonly supplierSupplierAccessRepo: Repository<SupplierSupplierAccess>,
   ) {}
-
-  /**
-   * SINGLE FUNCTION untuk semua kebutuhan find products
-   * Scalable untuk berbagai use case
-   */
-  async findProducts(
-    user: { role: Role; customerId?: number; supplierId?: number },
-    options: FindProductsOptions
-  ) {
-    const { viewType, specificSupplierId } = options;
-    let supplierIds: number[] = [];
-
-    console.log('📥 [findProducts] User:', user, 'Options:', options);
-
-    switch (viewType) {
-      case ProductViewType.MY_PRODUCTS:
-        supplierIds = await this.getMyProductSuppliers(user);
-        break;
-
-      case ProductViewType.CATALOG:
-        supplierIds = await this.getCatalogSuppliers(user);
-        break;
-
-      case ProductViewType.ALL:
-        supplierIds = await this.getAllSuppliers();
-        break;
-
-      case ProductViewType.SPECIFIC_SUPPLIER:
-        if (!specificSupplierId) {
-          throw new NotFoundException('Specific supplier ID is required');
-        }
-        supplierIds = await this.getSpecificSupplier(user, specificSupplierId);
-        break;
-
-      default:
-        throw new NotFoundException('Invalid view type');
-    }
-
-    if (supplierIds.length === 0) {
-      console.log('📦 No supplier access found');
-      return { data: [] };
-    }
-
-    const whereCondition = supplierIds.length === 1 && viewType === ProductViewType.ALL
-      ? {} // Untuk admin, tampilkan semua produk tanpa filter
-      : { supplier: { id: In(supplierIds) } };
-
-    console.log('📌 Final supplier IDs:', supplierIds);
-    console.log('📌 Where condition:', whereCondition);
-
-    const products = await this.productRepo.find({
-      where: whereCondition,
-      relations: [
-        'supplier',
-        'prices',
-        'bundleItems',
-        'bundleItems.product',
-        'bundleItems.product.prices',
-      ],
-      order: { created_at: 'DESC' },
-    });
-
-    console.log(`📦 Found ${products.length} products`);
-    return { data: products };
-  }
-
-  /**
-   * Helper: Dapatkan supplier untuk produk milik sendiri
-   */
-  private async getMyProductSuppliers(user: { role: Role; customerId?: number; supplierId?: number }): Promise<number[]> {
-    if (user.role === Role.Supplier) {
-      if (!user.supplierId) throw new NotFoundException('Supplier ID is required');
-      return [user.supplierId];
-    }
-
-    if (user.role === Role.Customer) {
-      if (!user.customerId) throw new NotFoundException('Customer ID is required');
-      // Customer tidak punya "produk sendiri", return empty atau redirect ke catalog
-      return [];
-    }
-
-    return [];
-  }
-
-  /**
-   * Helper: Dapatkan supplier untuk katalog
-   */
-  private async getCatalogSuppliers(user: { role: Role; customerId?: number; supplierId?: number }): Promise<number[]> {
-    if (user.role === Role.Customer) {
-      if (!user.customerId) throw new NotFoundException('Customer ID is required');
-
-      const access = await this.customerSupplierAccessRepo.find({
-        where: { customer: { id: user.customerId } },
-        relations: ['supplier'],
-      });
-
-      return access.map((a) => a.supplier.id);
-    }
-
-    if (user.role === Role.Supplier) {
-      if (!user.supplierId) throw new NotFoundException('Supplier ID is required');
-
-      const access = await this.supplierSupplierAccessRepo.find({
-        where: { viewer: { id: user.supplierId } },
-        relations: ['target'],
-      });
-
-      return access.map((a) => a.target.id);
-    }
-
-    return [];
-  }
-
-  /**
-   * Helper: Dapatkan semua supplier (untuk admin)
-   */
-  private async getAllSuppliers(): Promise<number[]> {
-    const suppliers = await this.supplierRepo.find({ select: ['id'] });
-    return suppliers.map(s => s.id);
-  }
-
-  /**
-   * Helper: Dapatkan supplier tertentu (dengan validasi akses)
-   */
-  private async getSpecificSupplier(
-    user: { role: Role; customerId?: number; supplierId?: number },
-    specificSupplierId: number
-  ): Promise<number[]> {
-    // Validasi apakah user punya akses ke supplier tersebut
-    const catalogSuppliers = await this.getCatalogSuppliers(user);
-    const mySuppliers = await this.getMyProductSuppliers(user);
-    
-    const allowedSuppliers = [...catalogSuppliers, ...mySuppliers];
-    
-    if (!allowedSuppliers.includes(specificSupplierId)) {
-      throw new NotFoundException('Access denied to this supplier');
-    }
-
-    return [specificSupplierId];
-  }
-
-  // ... method create, findOne, update, remove tetap sama ...
 
   async create(dto: CreateProductDto): Promise<Product> {
     const supplier = await this.supplierRepo.findOne({
@@ -251,6 +96,78 @@ export class ProductService {
     return this.findOne(savedProduct.id);
   }
 
+  async findAll(user: { role: Role; customerId?: number; supplierId?: number }) {
+    let supplierIds: number[] = [];
+
+    console.log('📥 [findAll] Incoming user:', user);
+
+    if (user.role === Role.Customer) {
+      if (!user.customerId) throw new NotFoundException('Customer ID is required');
+
+      const access = await this.customerSupplierAccessRepo.find({
+        where: { customer: { id: user.customerId } },
+        relations: ['supplier'],
+      });
+
+      supplierIds = access.map((a) => a.supplier.id);
+      console.log('📦 Allowed supplier IDs for customer:', supplierIds);
+      // Jika customer tidak memiliki akses ke supplier manapun, return empty
+      if (supplierIds.length === 0) {
+        return { data: [] };
+      }
+    }
+
+    if (user.role === Role.Supplier) {
+      if (!user.supplierId) throw new NotFoundException('Supplier ID is required');
+
+      // Supplier dapat melihat produk mereka sendiri
+      supplierIds = [user.supplierId];
+      // Jika ada akses ke supplier lain, tambahkan juga
+      const access = await this.supplierSupplierAccessRepo.find({
+        where: { viewer: { id: user.supplierId } },
+        relations: ['target'],
+      });
+
+      const additionalSupplierIds = access.map((a) => a.target.id);
+      supplierIds = [...supplierIds, ...additionalSupplierIds];
+      console.log('📦 Allowed supplier IDs for supplier view:', supplierIds);
+    }
+
+    // Jika user adalah admin atau role lain, tampilkan semua produk
+    if (user.role !== Role.Customer && user.role !== Role.Supplier) {
+      console.log('📌 Admin/Other role - showing all products');
+      const products = await this.productRepo.find({
+        relations: [
+          'supplier',
+          'prices',
+          'bundleItems',
+          'bundleItems.product',
+          'bundleItems.product.prices',
+        ],
+        order: { created_at: 'DESC' },
+      });
+      return { data: products };
+    }
+
+    const whereCondition = { supplier: { id: In(supplierIds) } };
+    console.log('📌 Final where condition for product query:', whereCondition);
+
+    const products = await this.productRepo.find({
+      where: whereCondition,
+      relations: [
+        'supplier',
+        'prices',
+        'bundleItems',
+        'bundleItems.product',
+        'bundleItems.product.prices',
+      ],
+      order: { created_at: 'DESC' },
+    });
+
+    return { data: products };
+  }
+
+
   async findOne(id: number) {
     const product = await this.productRepo.findOne({
       where: { id },
@@ -296,4 +213,5 @@ export class ProductService {
     // Hapus produk
     await this.productRepo.delete(id);
   }
+
 }

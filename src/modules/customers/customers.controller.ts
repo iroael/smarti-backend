@@ -41,13 +41,13 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   private sanitizeCustomer(customer: Customer) {
-    const { account, ...rest } = customer;
-    return rest;
+    // const { customer_id, ...rest } = customer;
+    return customer;
   }
 
   private validateAccess(requestUser: any, targetUserId: number) {
-    if (requestUser.role !== Role.Admin && requestUser.id !== targetUserId) {
-      this.logger.warn(`Unauthorized access attempt by user ${requestUser.id}`);
+    if (requestUser.role !== Role.Admin && requestUser.customerId !== targetUserId) {
+      this.logger.warn(`Unauthorized access attempt by user ${requestUser.customerId}`);
       throw new ForbiddenException('Access denied');
     }
   }
@@ -68,7 +68,8 @@ export class CustomersController {
   @ApiResponse({ status: 200, description: 'Current customer', type: Customer })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMe(@Request() req) {
-    const customer = await this.customersService.findOne(req.user.id);
+    const customer = await this.customersService.findOne(req.user.customerId);
+    // console.log('customer controller = ', req)
     if (!customer) throw new NotFoundException('Customer not found');
 
     // Ambil addresses yang is_deleted = false
@@ -106,16 +107,16 @@ export class CustomersController {
   @ApiParam({ name: 'id', description: 'Customer ID' })
   @ApiResponse({ status: 200, description: 'Customer updated', type: Customer })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  async update(
+  update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCustomerDto,
     @Request() req,
   ) {
     this.validateAccess(req.user, id);
-    const existing = await this.customersService.findOne(id);
+    const existing = this.customersService.findOne(id);
     if (!existing) throw new NotFoundException('Customer not found');
-    const updated = await this.customersService.update(id, dto);
-    return this.sanitizeCustomer(updated);
+    const updated = this.customersService.update(id, dto);
+    return updated;
   }
 
   @Delete(':id')
@@ -123,12 +124,11 @@ export class CustomersController {
   @ApiOperation({ summary: 'Delete customer by ID' })
   @ApiResponse({ status: 200, description: 'Customer deleted' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  async remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
     this.validateAccess(req.user, id);
-    const existing = await this.customersService.findOne(id);
+    const existing = this.customersService.findOne(id);
     if (!existing) throw new NotFoundException('Customer not found');
-    const deleted = await this.customersService.remove(id);
-    return this.sanitizeCustomer(deleted);
+    return this.customersService.remove(id);
   }
 
   @Post(':id/addresses')
@@ -141,6 +141,8 @@ export class CustomersController {
     @Body() dto: AddCustomerAddressDto,
     @Request() req,
   ) {
+    console.log('addAddress =', req.user)
+    console.log('customerId => ',customerId)
     this.validateAccess(req.user, customerId);
     return this.customersService.addAddress(customerId, dto);
   }

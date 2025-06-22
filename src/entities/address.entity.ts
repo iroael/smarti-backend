@@ -1,21 +1,23 @@
+// tax-identifications.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
   CreateDateColumn,
-  JoinColumn,
+  Index,
 } from 'typeorm';
-import { Customer } from './customer.entity';
 
-@Entity('customers_address')
-export class CustomerAddress {
+@Entity('addresses')
+@Index(['ownerType', 'ownerId'])
+export class Addresses {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Customer, (customer) => customer.addresses)
-  @JoinColumn({ name: 'customer_id' })
-  customer: Customer;
+  @Column({ type: 'enum', enum: ['customer', 'supplier'] })
+  ownerType: 'customer' | 'supplier';
+
+  @Column()
+  ownerId: number;
 
   @Column()
   name: string;
@@ -35,12 +37,12 @@ export class CustomerAddress {
   @Column()
   postalcode: string;
 
-  @Column({ default: true, type: 'boolean' })
-  is_default: boolean;
-
   @Column({ default: false, type: 'boolean' })
   is_deleted: boolean;
 
+  @Column({ default: false, type: 'boolean' })
+  is_default: boolean;
+
   @CreateDateColumn()
-  created_at: Date;
+  createdAt: Date;
 }

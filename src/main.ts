@@ -10,7 +10,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   // ✅ Aktifkan CORS agar frontend bisa akses API
   app.enableCors({
-    origin: 'http://103.158.130.3:3000/', // frontend origin
+    origin: 'http://localhost:3000', // frontend origin
     credentials: true,
   });
 

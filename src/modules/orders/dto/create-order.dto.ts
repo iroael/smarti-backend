@@ -16,6 +16,10 @@ export class CreateOrderDto {
   @IsNumber()
   customerId: number;
 
+  // @ApiProperty({ example: 1 })
+  // @IsNumber()
+  // supplierId: number;
+
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   items: CreateOrderItemDto[];

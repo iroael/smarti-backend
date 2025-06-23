@@ -9,8 +9,6 @@ import {
 } from 'typeorm';
 import { Product } from './product.entity';
 import { Order } from './order.entity';
-import { BankAccount } from './bank-account.entity';
-import { TaxIdentification } from './tax-identifications.entity';
 
 @Entity('suppliers')
 export class Supplier {
@@ -19,6 +17,9 @@ export class Supplier {
 
   @Column({ nullable: true, unique: true })
   supplier_code: string;
+
+  @Column({ type: 'enum', nullable: true, enum: ['Admin', 'KSO', 'Vendor', 'Provider', 'ISP'] })
+  kategori: 'Admin' | 'KSO' | 'Vendor' | 'Provider' | 'ISP';
 
   @Column()
   name: string;

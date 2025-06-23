@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { CreateAddressDto } from 'src/modules/address/dto/create-address.dto';
 
 // Optional: Move these two to their own files (e.g., dto/bank-account.dto.ts, dto/tax.dto.ts) for reuse
 
@@ -117,6 +118,12 @@ export class CreateCustomerDto {
   @IsNotEmpty()
   @IsString()
   postalcode: string;
+
+  @ApiProperty({ type: () => CreateAddressDto, required: false })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateAddressDto)
+  addresses?: CreateAddressDto;
 
   @ApiProperty({ type: () => TaxDto, required: false })
   @IsOptional()

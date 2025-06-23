@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsArray } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsArray, IsOptional, IsString } from 'class-validator';
 
 export class CreateOrderItemDto {
   @ApiProperty({ example: 1 })
@@ -16,9 +16,28 @@ export class CreateOrderDto {
   @IsNumber()
   customerId: number;
 
-  // @ApiProperty({ example: 1 })
-  // @IsNumber()
-  // supplierId: number;
+  // Catatan: supplierId biasanya tidak perlu karena diambil dari product.supplier
+
+  @ApiProperty({
+    example: 'Please handle with care, fragile items included',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiProperty({
+    example: 12345,
+    required: false,
+    description: 'ID atau kode numeric untuk alamat pengiriman',
+  })
+  @IsOptional()
+  @IsNumber()
+  deliveryAddress?: number;
+
+  @IsOptional()
+  @IsNumber()
+  shippingCost?: number;  // ongkir, optional
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

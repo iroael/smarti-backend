@@ -7,12 +7,14 @@ import { BankAccount } from 'src/entities/bank-account.entity';
 import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
+import { Addresses } from 'src/entities/address.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
     Customer,
     Account,
     CustomerAddress,
+    Addresses,
     BankAccount,
     TaxIdentification,
   ])],

@@ -11,6 +11,7 @@ import { CustomerAddress } from 'src/entities/customer-address.entity';
 import { BankAccount } from 'src/entities/bank-account.entity';
 import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { Account } from 'src/entities/account.entity';
+import { Addresses } from 'src/entities/address.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import * as bcrypt from 'bcrypt';
@@ -32,16 +33,20 @@ export class CustomersService {
 
     @InjectRepository(TaxIdentification)
     private taxRepo: Repository<TaxIdentification>,
+
+    @InjectRepository(Addresses)
+    private addressRepo: Repository<Addresses>,
   ) {}
 
   // Helper to group array by key
   private groupBy<T>(array: T[], keyFn: (item: T) => string | number): Record<string, T[]> {
     return array.reduce((acc, item) => {
       const key = keyFn(item);
-      acc[key] = acc[key] || [];
-      acc[key].push(item);
-      return acc;
-    }, {} as Record<string, T[]>);
+        acc[key] = acc[key] || [];
+        acc[key].push(item);
+        return acc;
+      },
+    {} as Record<string, T[]>);
   }
 
   async findAll(): Promise<any[]> {
@@ -136,18 +141,35 @@ export class CustomersService {
     });
     const savedCustomer = await this.customerRepository.save(customer);
 
-    // Simpan alamat default
-    const defaultAddress = this.customerAddressRepository.create({
-      customer: savedCustomer,
-      name: savedCustomer.name,
-      phone: savedCustomer.phone,
-      city: savedCustomer.city,
-      province: savedCustomer.province,
-      address: savedCustomer.address,
-      postalcode: savedCustomer.postalcode,
-      is_default: true,
-    });
-    await this.customerAddressRepository.save(defaultAddress);
+    if (dto.addresses) {
+      const addressCustomer = this.addressRepo.create({
+        name: dto.addresses.name,
+        phone: dto.addresses.phone,
+        city: dto.addresses.city,
+        province: dto.addresses.province,
+        address: dto.addresses.address,
+        postalcode: dto.addresses.postalcode,
+        is_default: dto.addresses.is_default ?? false,
+        is_deleted: dto.addresses.is_deleted ?? false,
+        ownerType: 'customer', // ✅ Required field
+        ownerId: savedCustomer.id, // ✅ Required field
+      });
+      await this.addressRepo.save(addressCustomer);
+    } else {
+      // jika tidak ada inputan dari user langsung di setup sebagai default
+      const defaultAddress = this.addressRepo.create({
+        name: savedCustomer.name,
+        phone: savedCustomer.phone,
+        city: savedCustomer.city,
+        province: savedCustomer.province,
+        ownerType: 'customer', // ✅ Required field
+        ownerId: savedCustomer.id, // ✅ Required field
+        is_default: true,
+        address: savedCustomer.address,
+        postalcode: savedCustomer.postalcode,
+      });
+      await this.addressRepo.save(defaultAddress);
+    }
 
     if (dto.tax) {
       const tax = this.taxRepo.create({

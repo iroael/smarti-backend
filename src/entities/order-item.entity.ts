@@ -1,6 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  Column,
+  OneToMany,
+} from 'typeorm';
 import { Order } from './order.entity';
 import { Product } from './product.entity';
+import { OrderItemTax } from './order-item-tax.entity';
 
 @Entity()
 export class OrderItem {
@@ -18,4 +25,10 @@ export class OrderItem {
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number; // harga pada saat order
+
+  @OneToMany(() => OrderItemTax, (tax) => tax.orderItem, {
+    cascade: true, // <--- penting!
+    eager: true,
+  })
+  taxes: OrderItemTax[];
 }

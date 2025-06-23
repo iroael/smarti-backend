@@ -16,17 +16,20 @@ export class MidtransController {
   async getSnapToken(@Query('orderId') orderId: string) {
     const order = await this.ordersService.findOrderById(orderId);
     if (!order) {
-        return { error: 'Order not found' };
+      return { error: 'Order not found' };
+    }
+    if (!order.customer) {
+      return { error: 'Customer info not available for this order' };
     }
 
     const token = await this.midtransService.generateSnapToken({
-        orderId: order.orderNumber,
-        amount: order.total,
-        customer: {
+      orderId: order.orderNumber,
+      amount: order.total,
+      customer: {
         name: order.customer.name,
         email: order.customer.email,
         phone: order.customer.phone,
-        },
+      },
     });
 
     return { token };

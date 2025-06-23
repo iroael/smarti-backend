@@ -20,14 +20,11 @@ export class AuthService {
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
 
-    @InjectRepository(CustomerAddress)
-    private customerAddressRepository: Repository<CustomerAddress>,
-
     @InjectRepository(BankAccount)
     private bankAccountRepo: Repository<BankAccount>,
 
     @InjectRepository(Addresses)
-    private supplierAddressRepo: Repository<Addresses>,
+    private addressRepo: Repository<Addresses>,
 
     @InjectRepository(TaxIdentification)
     private taxRepo: Repository<TaxIdentification>,
@@ -87,6 +84,8 @@ export class AuthService {
         id: account.id,
         email: account.email,
         role: account.role,
+        customer_id: account.customer_id,
+        supplier_id: account.customer_id,
         name,
         npwp,
       },
@@ -106,11 +105,19 @@ export class AuthService {
     let bankAccounts: BankAccount[] = [];
 
     if (account.role === Role.Customer && account.customer_id) {
+      const customerId = account.customer_id;
       profile = await this.customerRepository.findOne({
-        where: { id: account.customer_id },
-        relations: ['addresses'],
+        where: { id: customerId },
       });
 
+      const addresses = await this.addressRepo.find({
+        where: {
+          ownerType: 'customer',
+          ownerId: customerId,
+        },
+      });
+
+      profile.addresses = addresses;
       taxData = await this.taxRepo.findOne({
         where: {
           ownerType: 'customer',
@@ -130,7 +137,7 @@ export class AuthService {
       profile = account.supplier;
 
       // Manual load addresses if not using relation
-      const addresses = await this.supplierAddressRepo.find({
+      const addresses = await this.addressRepo.find({
         where: {
           ownerType: 'supplier',
           ownerId: supplierId,

@@ -35,9 +35,9 @@ async function bootstrap() {
       description: 'Masukkan JWT token',
       in: 'header',
     })
-    .addServer('https://e124-103-189-116-14.ngrok-free.app')
-    // .addServer(`http://${host}:${port}`, 'Development') // 🟢 Local dev
-    // .addServer(`http://${prodHost}:${prodPort}`, 'Production') // 🟡 Production
+    // .addServer('https://e124-103-189-116-14.ngrok-free.app')
+    .addServer(`http://${host}:${port}`, 'Development') // 🟢 Local dev
+    .addServer(`http://${prodHost}:${prodPort}`, 'Production') // 🟡 Production
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

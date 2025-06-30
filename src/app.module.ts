@@ -12,6 +12,10 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AccessModule } from './modules/access/access.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { AddressModule } from './modules/address/address.module';
+import { TaxIdentificationsModule } from './modules/tax/tax-identifications.module';
+import { RajaOngkirModule } from './modules/rajaongkir/rajaongkir.module';
+import { TaxModule } from './modules/product-taxes/tax.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
@@ -32,16 +36,20 @@ import { AddressModule } from './modules/address/address.module';
     CustomersModule,
     SupplierModule,
     AddressModule,
+    TaxIdentificationsModule,
     ProductModule,
+    TaxModule,
     OrdersModule,
+    ShippingModule,
     AccountsModule,
     AccessModule,
+    RajaOngkirModule,
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard, // ← Guard untuk autentikasi JWT
-    },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: JwtAuthGuard, // ← Guard untuk autentikasi JWT
+    // },
     {
       provide: APP_GUARD,
       useClass: RolesGuard, // ← Guard untuk role-based authorization

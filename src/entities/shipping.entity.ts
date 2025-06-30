@@ -7,29 +7,29 @@ import {
 } from 'typeorm';
 import { Order } from './order.entity';
 
-@Entity()
+@Entity('shippings')
 export class Shipping {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'id' })
   id: number;
 
   @ManyToOne(() => Order, (order) => order.shippings, { eager: true })
   order: Order;
 
-  @Column()
+  @Column({ name: 'courier_name' })
   courierName: string;
 
-  @Column()
+  @Column({ name: 'tracking_number' })
   trackingNumber: string;
 
-  @Column()
+  @Column({ name: 'shipping_status' })
   shippingStatus: 'pending' | 'shipped' | 'delivered' | 'cancelled';
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'shipped_at', type: 'timestamp', nullable: true })
   shippedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'delivered_at', type: 'timestamp', nullable: true })
   deliveredAt: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

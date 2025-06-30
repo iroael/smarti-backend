@@ -35,9 +35,14 @@ export class CreateOrderDto {
   @IsNumber()
   deliveryAddress?: number;
 
+  @ApiProperty({
+    example: 10000,
+    required: true,
+    description: 'Input data biaya',
+  })
   @IsOptional()
   @IsNumber()
-  shippingCost?: number;  // ongkir, optional
+  shippingCost?: number; // ongkir, optional
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

@@ -7,9 +7,16 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum InventoryType {
+  STOCK = 'stock',
+  SERVICE = 'service',
+  DIGITAL = 'digital',
+}
 
 class PriceDto {
   @ApiProperty({ example: 120000 })
@@ -51,6 +58,10 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+  @IsEnum(InventoryType)
+  @ApiProperty({ example: 'stock', enum: InventoryType })
+  inventory_type: InventoryType;
+
   @ApiProperty({ example: 10 })
   @IsInt()
   stock: number;
@@ -74,4 +85,10 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => BundleItemDto)
   bundleItems?: BundleItemDto[];
+
+  @ApiPropertyOptional({ example: [1, 2], description: 'List of tax IDs applied to this product' })
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  tax_ids?: number[];
 }

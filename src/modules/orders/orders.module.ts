@@ -12,11 +12,12 @@ import { OrderItemTax } from '../../entities/order-item-tax.entity';
 import { MidtransModule } from '../midtrans/midtrans.module'; // <-- Import MidtransModule
 import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.entity';
 import { Addresses } from 'src/entities/address.entity';
+import { ProductBundleItem } from 'src/entities/product-bundle-item.entity';
 
 @Module({
   imports: [
     // TypeOrmModule.forFeature([Order, OrderItem, Product, Customer, Supplier, Tax, OrderItemTax, SupplierSupplierAccess]),
-    TypeOrmModule.forFeature([Order, OrderItem, Product, Customer, Supplier, Tax, OrderItemTax, SupplierSupplierAccess, Addresses]),
+    TypeOrmModule.forFeature([Order, OrderItem, Product, ProductBundleItem, Customer, Supplier, Tax, OrderItemTax, SupplierSupplierAccess, Addresses]),
     forwardRef(() => MidtransModule),
   ],
   controllers: [OrdersController],

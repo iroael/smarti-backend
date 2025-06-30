@@ -69,7 +69,6 @@ export class CustomersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMe(@Request() req) {
     const customer = await this.customersService.findOne(req.user.customerId);
-    // console.log('customer controller = ', req)
     if (!customer) throw new NotFoundException('Customer not found');
 
     // Ambil addresses yang is_deleted = false
@@ -141,8 +140,6 @@ export class CustomersController {
     @Body() dto: AddCustomerAddressDto,
     @Request() req,
   ) {
-    console.log('addAddress =', req.user)
-    console.log('customerId => ',customerId)
     this.validateAccess(req.user, customerId);
     return this.customersService.addAddress(customerId, dto);
   }

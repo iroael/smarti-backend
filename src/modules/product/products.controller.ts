@@ -50,7 +50,7 @@ export class ProductController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async findMyProducts(@Request() req) {
     const user = req.user;
-    console.log('📥 [my-products] User:', user);
+    // console.log('📥 [my-products] User:', user);
 
     return this.productService.findProducts(user, {
       viewType: ProductViewType.MY_PRODUCTS
@@ -68,7 +68,7 @@ export class ProductController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async findCatalogProducts(@Request() req) {
     const user = req.user;
-    console.log('📥 [catalog] User:', user);
+    // console.log('📥 [catalog] User:', user);
 
     return this.productService.findProducts(user, {
       viewType: ProductViewType.CATALOG
@@ -94,7 +94,7 @@ export class ProductController {
     @Query('supplier') supplier?: string
   ) {
     const user = req.user;
-    console.log('📥 [findAll] User:', user, 'Query params:', { view, supplier });
+    // console.log('📥 [findAll] User:', user, 'Query params:', { view, supplier });
 
     // Jika ada query parameter, gunakan itu
     if (view || supplier) {
@@ -138,7 +138,7 @@ export class ProductController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async findAllForAdmin(@Request() req) {
     const user = req.user;
-    console.log('📥 [admin-all] User:', user);
+    // console.log('📥 [admin-all] User:', user);
 
     return this.productService.findProducts(user, {
       viewType: ProductViewType.ALL
@@ -160,7 +160,7 @@ export class ProductController {
     @Request() req
   ) {
     const user = req.user;
-    console.log('📥 [supplier-specific] User:', user, 'Supplier ID:', supplierId);
+    // console.log('📥 [supplier-specific] User:', user, 'Supplier ID:', supplierId);
 
     return this.productService.findProducts(user, {
       viewType: ProductViewType.SPECIFIC_SUPPLIER,

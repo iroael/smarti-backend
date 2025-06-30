@@ -16,13 +16,13 @@ import { OrderStatus } from 'src/common/enums/order-status.enum';
 
 @Entity('order')
 export class Order {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   orderNumber: string;
 
-  // ========= Customer (tanpa FK constraint) =========
+  // ========= Customer (FK UUID atau integer, sesuaikan dengan customer) =========
   @Column()
   customerId: number;
 
@@ -30,7 +30,7 @@ export class Order {
   @JoinColumn({ name: 'customerId' })
   customer?: Customer;
 
-  // ========= Supplier (tanpa FK constraint) =========
+  // ========= Supplier =========
   @Column()
   supplierId: number;
 
@@ -48,9 +48,6 @@ export class Order {
   })
   status: OrderStatus;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  total: number;
-
   @Column({ type: 'text', nullable: true })
   notes?: string;
 
@@ -58,7 +55,13 @@ export class Order {
   deliveryAddress?: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  subTotal: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   shippingCost: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  total: number;
 
   @OneToMany(() => OrderItem, (item) => item.order, {
     cascade: true,
@@ -66,7 +69,16 @@ export class Order {
   })
   items: OrderItem[];
 
-  // ========= Parent Order =========
+  @Column({ type: 'text', nullable: true })
+  snapToken?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  snapTokenExpiredAt?: Date;
+
+  // ========= Parent Order (UUID) =========
+  @Column({ type: 'uuid', nullable: true })
+  parentOrderId?: string;
+
   @ManyToOne(() => Order, (order) => order.subOrders, { nullable: true })
   @JoinColumn({ name: 'parentOrderId' })
   parentOrder?: Order;

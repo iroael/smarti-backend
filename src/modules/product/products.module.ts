@@ -8,7 +8,8 @@ import { ProductPrice } from 'src/entities/product-price.entity';
 import { ProductBundleItem } from 'src/entities/product-bundle-item.entity';
 import { CustomerSupplierAccess } from 'src/entities/customer-supplier-access.entity';
 import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.entity';
-
+import { ProductTax } from 'src/entities/product-tax.entity';
+import { Tax } from 'src/entities/tax.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,8 @@ import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.en
       ProductBundleItem,
       CustomerSupplierAccess,
       SupplierSupplierAccess,
+      ProductTax,
+      Tax,
     ]),
   ],
   controllers: [ProductController],

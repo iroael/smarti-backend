@@ -21,6 +21,9 @@ export class Supplier {
   @Column({ type: 'enum', nullable: true, enum: ['Admin', 'KSO', 'Vendor', 'Provider', 'ISP'] })
   kategori: 'Admin' | 'KSO' | 'Vendor' | 'Provider' | 'ISP';
 
+  @Column({ nullable: true })
+  npwp: string;
+
   @Column()
   name: string;
 
@@ -32,6 +35,15 @@ export class Supplier {
 
   @Column({ unique: true })
   email: string;
+
+  @Column({ nullable: true })
+  province: string;
+
+  @Column({ nullable: true })
+  city: string;
+
+  @Column({ nullable: true })
+  postalcode: string;
 
   @OneToMany(() => Product, (product) => product.supplier)
   products: Product[];

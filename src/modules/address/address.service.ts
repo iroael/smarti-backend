@@ -27,6 +27,19 @@ export class AddressService {
     });
   }
 
+  async getById(id: number): Promise<Addresses> {
+    const address = await this.addressRepo.findOne({
+      where: { id, is_deleted: false },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    return address;
+  }
+
+
   async setDefaultAddress(addressId: number): Promise<Addresses> {
     const address = await this.addressRepo.findOne({
       where: { id: addressId, is_deleted: false },

@@ -10,6 +10,13 @@ import {
 import { Supplier } from './supplier.entity';
 import { ProductPrice } from './product-price.entity';
 import { ProductBundleItem } from './product-bundle-item.entity';
+import { ProductTax } from './product-tax.entity';
+
+export enum InventoryType {
+  STOCK = 'stock',
+  SERVICE = 'service',
+  DIGITAL = 'digital',
+}
 
 @Entity('products')
 export class Product {
@@ -31,6 +38,22 @@ export class Product {
   @Column({ default: false })
   is_bundle: boolean;
 
+  @Column({ default: false })
+  weight: string;
+
+  @Column({ default: false })
+  height: string;
+
+  @Column({ default: false })
+  dimension: string;
+
+  @Column({
+    type: 'enum',
+    enum: InventoryType,
+    default: InventoryType.STOCK,
+  })
+  inventory_type: InventoryType;
+
   @ManyToOne(() => Supplier, (supplier) => supplier.products, { eager: true })
   @JoinColumn({ name: 'supplier_id' })
   supplier: Supplier;
@@ -41,11 +64,23 @@ export class Product {
   })
   prices: ProductPrice[];
 
+  @OneToMany(() => ProductTax, (pt) => pt.product, {
+    cascade: true,
+    eager: true,
+  })
+  productTaxes: ProductTax[];
+
   @OneToMany(() => ProductBundleItem, (item) => item.bundle, {
     cascade: true,
-    eager: false, // ⚠️ WAS true, now false to prevent circular eager loading
+    eager: false,
   })
   bundleItems: ProductBundleItem[];
+
+  @Column({ default: false })
+  is_deleted: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deleted_at: Date | null;
 
   @CreateDateColumn()
   created_at: Date;

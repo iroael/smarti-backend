@@ -4,6 +4,8 @@ import { Repository, In } from 'typeorm';
 import { Product } from 'src/entities/product.entity';
 import { ProductPrice } from 'src/entities/product-price.entity';
 import { ProductBundleItem } from 'src/entities/product-bundle-item.entity';
+import { ProductTax } from 'src/entities/product-tax.entity';
+import { Tax } from 'src/entities/tax.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Supplier } from 'src/entities/supplier.entity';
@@ -31,7 +33,8 @@ export class ProductService {
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
     @InjectRepository(ProductPrice) private priceRepo: Repository<ProductPrice>,
     @InjectRepository(ProductBundleItem) private bundleRepo: Repository<ProductBundleItem>,
-
+    @InjectRepository(ProductTax) private readonly productTaxRepo: Repository<ProductTax>,
+    @InjectRepository(Tax) private readonly taxRepo: Repository<Tax>,
     @InjectRepository(CustomerSupplierAccess)
     private readonly customerSupplierAccessRepo: Repository<CustomerSupplierAccess>,
 
@@ -50,7 +53,7 @@ export class ProductService {
     const { viewType, specificSupplierId } = options;
     let supplierIds: number[] = [];
 
-    console.log('📥 [findProducts] User:', user, 'Options:', options);
+    // console.log('📥 [findProducts] User:', user, 'Options:', options);
 
     switch (viewType) {
       case ProductViewType.MY_PRODUCTS:
@@ -77,7 +80,7 @@ export class ProductService {
     }
 
     if (supplierIds.length === 0) {
-      console.log('📦 No supplier access found');
+      // console.log('📦 No supplier access found');
       return { data: [] };
     }
 
@@ -85,8 +88,8 @@ export class ProductService {
       ? {} // Untuk admin, tampilkan semua produk tanpa filter
       : { supplier: { id: In(supplierIds) } };
 
-    console.log('📌 Final supplier IDs:', supplierIds);
-    console.log('📌 Where condition:', whereCondition);
+    // console.log('📌 Final supplier IDs:', supplierIds);
+    // console.log('📌 Where condition:', whereCondition);
 
     const products = await this.productRepo.find({
       where: whereCondition,
@@ -100,7 +103,7 @@ export class ProductService {
       order: { created_at: 'DESC' },
     });
 
-    console.log(`📦 Found ${products.length} products`);
+    // console.log(`📦 Found ${products.length} products`);
     return { data: products };
   }
 
@@ -164,14 +167,14 @@ export class ProductService {
    */
   private async getSpecificSupplier(
     user: { role: Role; customerId?: number; supplierId?: number },
-    specificSupplierId: number
+    specificSupplierId: number,
   ): Promise<number[]> {
     // Validasi apakah user punya akses ke supplier tersebut
     const catalogSuppliers = await this.getCatalogSuppliers(user);
     const mySuppliers = await this.getMyProductSuppliers(user);
-    
+
     const allowedSuppliers = [...catalogSuppliers, ...mySuppliers];
-    
+
     if (!allowedSuppliers.includes(specificSupplierId)) {
       throw new NotFoundException('Access denied to this supplier');
     }
@@ -180,7 +183,6 @@ export class ProductService {
   }
 
   // ... method create, findOne, update, remove tetap sama ...
-
   async create(dto: CreateProductDto): Promise<Product> {
     const supplier = await this.supplierRepo.findOne({
       where: { id: dto.supplier_id },
@@ -191,6 +193,7 @@ export class ProductService {
       product_code: dto.product_code,
       name: dto.name,
       description: dto.description,
+      inventory_type: dto.inventory_type,
       stock: dto.stock,
       is_bundle: dto.is_bundle,
       supplier,
@@ -246,6 +249,19 @@ export class ProductService {
         product: savedProduct,
       });
       await this.priceRepo.save(price);
+    }
+
+    // ✅ Tambahkan penyimpanan pajak produk
+    if (dto.tax_ids?.length) {
+      for (const taxId of dto.tax_ids) {
+        const tax = await this.taxRepo.findOne({ where: { id: taxId } });
+        if (!tax) throw new NotFoundException(`Tax ID ${taxId} not found`);
+
+        await this.productTaxRepo.save({
+          product: savedProduct,
+          tax,
+        });
+      }
     }
 
     return this.findOne(savedProduct.id);

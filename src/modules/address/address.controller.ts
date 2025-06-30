@@ -45,6 +45,16 @@ export class AddressController {
     return this.addressService.create(dto);
   }
 
+  @Get(':id')
+  @Roles(Role.Admin, Role.Customer, Role.Supplier)
+  @ApiOperation({ summary: 'Get address by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'Address found', type: Addresses })
+  @ApiResponse({ status: 404, description: 'Address not found' })
+  getById(@Param('id') id: number) {
+    return this.addressService.getById(id);
+  }
+
   @Patch(':id')
   @Roles(Role.Admin, Role.Customer, Role.Supplier)
   @ApiOperation({ summary: 'Update address by ID' })

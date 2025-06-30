@@ -4,8 +4,8 @@ import {
   Body,
   Get,
   Param,
-  ParseIntPipe,
   UseGuards,
+  Patch,
   UnauthorizedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
@@ -15,6 +15,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Order } from 'src/entities/order.entity';
@@ -23,6 +24,7 @@ import { Req } from '@nestjs/common';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { OrderStatus } from 'src/common/enums/order-status.enum';
 
 @ApiTags('Orders')
 @ApiBearerAuth() // Swagger support for JWT
@@ -106,12 +108,11 @@ export class OrdersController {
   }
 
   @Get('me')
-  // @Roles(Role.Customer, Role.Supplier)
+  @Roles(Role.Customer, Role.Supplier)
   @ApiOperation({ summary: 'Get orders for the logged-in customer' })
   async findMyOrders(@Req() req: Request) {
     const user = req.user as any
-    console.log('order.controller findMyOrder', user.customerId)
-    // console.log('order.controller req', req.user.supplierId)
+    console.log(user)
     if (!user || !user.customerId) {
       throw new UnauthorizedException('Customer ID not found in token');
     }
@@ -138,7 +139,73 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Order found', type: Order })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<Order> {
+  findOne(
+    @Param('id') id: string,
+  ): Promise<Order> {
     return this.ordersService.findOne(id);
+  }
+
+  @Patch(':id/snap-token')
+  @ApiOperation({ summary: 'Update SnapToken for Midtrans Payment' })
+  @ApiResponse({
+    status: 200,
+    description: 'SnapToken updated successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Order not found',
+  })
+  async updateSnapToken(
+    @Param('id') id: string,
+  ): Promise<{ snapToken: string }> {
+    const snapToken = await this.ordersService.generateSnapToken(id);
+    return { snapToken };
+  }
+
+  // ================== 🔥 Cancel Order ==================
+  @Patch(':id/cancel')
+  @Roles(Role.Admin, Role.Customer, Role.Supplier)
+  @ApiOperation({ summary: 'Cancel order by ID' })
+  @ApiParam({ name: 'id', description: 'Order UUID' })
+  @ApiResponse({ status: 200, description: 'Order cancelled successfully', type: Order })
+  @ApiResponse({ status: 400, description: 'Order cannot be cancelled due to its current status' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async cancelOrder(@Param('id') id: string) {
+    return this.ordersService.cancelOrder(id);
+  }
+
+  // =========================
+  // UPDATE ORDER STATUS (GENERAL)
+  // =========================
+  @Patch(':id/status/:status')
+  @Roles(Role.Admin, Role.Supplier)
+  @ApiOperation({ summary: 'Update order status (generic)' })
+  @ApiParam({ name: 'id', description: 'Order UUID' })
+  @ApiParam({
+    name: 'status',
+    enum: OrderStatus,
+    description: 'New status for the order',
+  })
+  @ApiResponse({ status: 200, description: 'Order status updated successfully', type: Order })
+  @ApiResponse({ status: 400, description: 'Invalid status transition' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Param('status') status: OrderStatus,
+  ) {
+    return this.ordersService.updateOrderStatus(id, status);
+  }
+
+  // ================== 🔥 Get Valid Next Status ==================
+  @Get(':id/next-status')
+  @Roles(Role.Admin, Role.Supplier)
+  @ApiOperation({ summary: 'Get valid next status from current order status' })
+  @ApiParam({ name: 'id', description: 'Order UUID' })
+  async getValidNextStatus(@Param('id') id: string) {
+    const order = await this.ordersService.findOne(id);
+    return {
+      currentStatus: order.status,
+      validNextStatuses: this.ordersService.getValidNextStatuses(order.status),
+    };
   }
 }

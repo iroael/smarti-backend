@@ -32,23 +32,26 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column('int')
-  stock: number;
-
   @Column({ default: false })
   is_bundle: boolean;
 
   @Column({ nullable: true })
-  lenght: number;
+  length: number;
 
   @Column({ nullable: true })
-  weight: number;
+  width: number;
 
   @Column({ nullable: true })
   height: number;
 
   @Column({ nullable: true })
+  weight: number;
+
+  @Column({ nullable: true })
   dimension: string;
+
+  @Column({ type: 'int', default: 0 })
+  stock: number;
 
   @Column({
     type: 'enum',

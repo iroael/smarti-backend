@@ -45,6 +45,24 @@ export class Supplier {
   @Column({ nullable: true })
   postalcode: string;
 
+  @Column({ type: 'text', nullable: true })
+  accurate_id: string;
+
+  @Column({ type: 'text', nullable: true })
+  xendit_id: string;
+
+  @Column({ type: 'text', nullable: true })
+  accurate_sc: string;
+
+  @Column({ type: 'text', nullable: true })
+  xendit_sc: string;
+
+  @Column({nullable: true })
+  astat: boolean;
+
+  @Column({nullable: true })
+  xstat: boolean;
+
   @OneToMany(() => Product, (product) => product.supplier)
   products: Product[];
 

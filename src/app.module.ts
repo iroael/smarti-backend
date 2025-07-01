@@ -46,10 +46,10 @@ import { ShippingModule } from './modules/shipping/shipping.module';
     RajaOngkirModule,
   ],
   providers: [
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: JwtAuthGuard, // ← Guard untuk autentikasi JWT
-    // },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard, // ← Guard untuk autentikasi JWT
+    },
     {
       provide: APP_GUARD,
       useClass: RolesGuard, // ← Guard untuk role-based authorization

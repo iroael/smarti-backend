@@ -38,13 +38,16 @@ export class Product {
   @Column({ default: false })
   is_bundle: boolean;
 
-  @Column({ default: false })
-  weight: string;
+  @Column({ nullable: true })
+  lenght: number;
 
-  @Column({ default: false })
-  height: string;
+  @Column({ nullable: true })
+  weight: number;
 
-  @Column({ default: false })
+  @Column({ nullable: true })
+  height: number;
+
+  @Column({ nullable: true })
   dimension: string;
 
   @Column({

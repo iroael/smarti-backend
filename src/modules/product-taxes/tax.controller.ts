@@ -6,7 +6,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { TaxService } from './tax.service';
 import { Tax } from 'src/entities/tax.entity';
 import { CreateTaxDto } from './dto/create-tax.dto';
-import { UpdateTaxDto } from './dto/update-tax.dto';
+import { UpdateProductTaxDto } from './dto/update-tax.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 
@@ -54,7 +54,7 @@ export class TaxController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Tax not found' })
   @ApiResponse({ status: 500, description: 'Internal Server Error' })
-  update(@Param('id') id: string, @Body() updateTaxDto: UpdateTaxDto) {
+  update(@Param('id') id: string, @Body() updateTaxDto: UpdateProductTaxDto) {
     return this.taxService.update(+id, updateTaxDto);
   }
 

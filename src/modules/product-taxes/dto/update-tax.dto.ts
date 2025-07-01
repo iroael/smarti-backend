@@ -3,7 +3,7 @@ import { PartialType } from '@nestjs/mapped-types';
 import { CreateTaxDto } from './create-tax.dto';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UpdateTaxDto extends PartialType(CreateTaxDto) {
+export class UpdateProductTaxDto extends PartialType(CreateTaxDto) {
   @ApiPropertyOptional({
     example: 'PPN 10%',
     description: 'Nama pajak yang baru',

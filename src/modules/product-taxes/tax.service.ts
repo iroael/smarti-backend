@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tax } from 'src/entities/tax.entity';
 import { CreateTaxDto } from './dto/create-tax.dto';
-import { UpdateTaxDto } from './dto/update-tax.dto';
+import { UpdateProductTaxDto } from './dto/update-tax.dto';
 
 @Injectable()
 export class TaxService {
@@ -28,7 +28,7 @@ export class TaxService {
     return tax;
   }
 
-  async update(id: number, updateTaxDto: UpdateTaxDto): Promise<Tax> {
+  async update(id: number, updateTaxDto: UpdateProductTaxDto): Promise<Tax> {
     const tax = await this.findOne(id);
     Object.assign(tax, updateTaxDto);
     return await this.taxRepository.save(tax);

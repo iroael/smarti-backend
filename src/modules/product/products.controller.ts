@@ -179,6 +179,17 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
+  @Post(':id/accurate-item-sync')
+  @ApiOperation({ summary: 'Sync a product manually to Accurate' })
+  @ApiResponse({ status: 200, description: 'Product synced successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiResponse({ status: 501, description: 'Service Unavailable' })
+  syncManual(@Param('id', ParseIntPipe) id: number) {
+    return this.productService.syncManual(id);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({ status: 200, description: 'Product updated' })

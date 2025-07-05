@@ -7,15 +7,19 @@ import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { SupplierService } from './supplier.service';
 import { SupplierController } from './supplier.controller';
 import { Addresses } from 'src/entities/address.entity';
+import { AccurateModule } from 'src/integrate-accurate/accurate/accurate.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([
-    Supplier,
-    Account,
-    BankAccount,
-    TaxIdentification,
-    Addresses
-  ])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Supplier,
+      Account,
+      BankAccount,
+      TaxIdentification,
+      Addresses,
+    ]),
+    AccurateModule,
+  ],
   providers: [SupplierService],
   controllers: [SupplierController],
   exports: [SupplierService],

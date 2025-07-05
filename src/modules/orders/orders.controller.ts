@@ -18,7 +18,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Order } from 'src/entities/order.entity';
+import { Order } from 'src/entities/orders/order.entity';
 import { Request } from 'express';
 import { Req } from '@nestjs/common';
 import { RolesGuard } from 'src/common/guards/roles.guard';

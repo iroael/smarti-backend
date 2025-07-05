@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Shipping } from 'src/entities/shipping.entity';
 import { CreateShippingDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
-import { Order } from 'src/entities/order.entity';
+import { Order } from 'src/entities/orders/order.entity';
 
 @Injectable()
 export class ShippingService {

@@ -27,7 +27,7 @@ class TaxDto {
   @IsEnum(TaxType)
   taxType?: TaxType;
 
-  @ApiProperty({ example: '01.234.567.8-999.000' })
+  @ApiProperty({ example: '012345678999000' })
   @IsNotEmpty()
   @IsString()
   taxNumber: string;
@@ -142,6 +142,21 @@ export class CreateSupplierDto {
   @IsNotEmpty()
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: 'Bandung' })
+  @IsNotEmpty()
+  @IsString()
+  city: string;
+
+  @ApiProperty({ example: 'Jawa Barat' })
+  @IsNotEmpty()
+  @IsString()
+  province: string;
+
+  @ApiProperty({ example: '40111' })
+  @IsNotEmpty()
+  @IsString()
+  postalcode: string;
 
   @ApiProperty({ type: () => AddSupplierAddressDto, required: false })
   @IsOptional()

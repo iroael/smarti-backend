@@ -5,7 +5,7 @@ import {
   ManyToOne,
   CreateDateColumn,
 } from 'typeorm';
-import { Order } from './order.entity';
+import { Order } from './orders/order.entity';
 
 @Entity('shippings')
 export class Shipping {

@@ -7,8 +7,8 @@ import {
   CreateDateColumn,
   OneToOne,
 } from 'typeorm';
-import { Product } from './product.entity';
-import { Order } from './order.entity';
+import { Product } from './product/product.entity';
+import { Order } from './orders/order.entity';
 
 @Entity('suppliers')
 export class Supplier {

@@ -6,7 +6,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { Product } from './product.entity';
-import { Tax } from './tax.entity';
+import { Tax } from '../tax.entity';
 
 @Entity('product_taxes')
 export class ProductTax {

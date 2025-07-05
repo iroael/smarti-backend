@@ -16,6 +16,9 @@ import { TaxIdentificationsModule } from './modules/tax/tax-identifications.modu
 import { RajaOngkirModule } from './modules/rajaongkir/rajaongkir.module';
 import { TaxModule } from './modules/product-taxes/tax.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
+import { OrderPaymentModule } from './modules/order-payment/order-payment.module';
+import { PurchaseOrderModule } from './modules/purchase/purchase-order.module';
+import { AccurateModule } from './integrate-accurate/accurate/accurate.module';
 
 @Module({
   imports: [
@@ -29,7 +32,8 @@ import { ShippingModule } from './modules/shipping/shipping.module';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      entities: [__dirname + '/entities/*.entity{.ts,.js}'],
+      // entities: [__dirname + '/entities/*.entity{.ts,.js}'],
+      entities: [__dirname + '/entities/**/*.entity{.ts,.js}'],
       synchronize: true,
     }),
     AuthModule,
@@ -40,10 +44,14 @@ import { ShippingModule } from './modules/shipping/shipping.module';
     ProductModule,
     TaxModule,
     OrdersModule,
+    OrderPaymentModule,
     ShippingModule,
+    PurchaseOrderModule,
     AccountsModule,
     AccessModule,
     RajaOngkirModule,
+    // Integrasi Accurate
+    AccurateModule, // Uncomment if you have an Accurate module
   ],
   providers: [
     {

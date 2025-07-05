@@ -7,12 +7,13 @@ import {
   CreateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { Customer } from './customer.entity';
-import { Supplier } from './supplier.entity';
+import { Customer } from '../customer.entity';
+import { Supplier } from '../supplier.entity';
 import { OrderItem } from './order-item.entity';
-import { Shipping } from './shipping.entity';
-import { Payment } from './payment.entity';
+import { Shipping } from '../shipping.entity';
+import { OrderPayment } from './order-payment.entity';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
+import { PurchaseRelateOrder } from '../purchase/purchase-relate-order.entity';
 
 @Entity('order')
 export class Order {
@@ -87,10 +88,15 @@ export class Order {
   subOrders: Order[];
 
   // ========= Payment =========
-  @OneToMany(() => Payment, (payment) => payment.order)
-  payments: Payment[];
+  @OneToMany(() => OrderPayment, (payment) => payment.order)
+  payments: OrderPayment[];
 
   // ========= Shipping =========
   @OneToMany(() => Shipping, (shipping) => shipping.order)
   shippings: Shipping[];
+
+  // relate order ke po
+  @OneToMany(() => PurchaseRelateOrder, rel => rel.order)
+  purchaseRelates: PurchaseRelateOrder[];
+
 }

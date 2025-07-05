@@ -14,11 +14,20 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  // app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true, // ✅ penting untuk mengubah plain object → class instance
+      transformOptions: {
+        enableImplicitConversion: true, // opsional, jika butuh konversi number dari string
+      },
+    }),
+  );
 
   const port = parseInt(process.env.APP_PORT || '3000', 10);
   const host = process.env.APP_HOST || 'localhost';
-  const env = process.env.NODE_ENV || 'development';
+  // const env = process.env.NODE_ENV || 'development';
 
   const prodHost = process.env.APP_HOST_PROD || 'api.production.com';
   const prodPort = process.env.APP_PORT_PROD || '443';

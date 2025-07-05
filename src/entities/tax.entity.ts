@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { ProductTax } from './product-tax.entity';
+import { ProductTax } from './product/product-tax.entity';
 
 @Entity('taxes')
 export class Tax {
@@ -20,7 +20,6 @@ export class Tax {
 
   @Column('text', { nullable: true })
   description: string;
-
 
   @Column({ default: true })
   is_active: boolean;

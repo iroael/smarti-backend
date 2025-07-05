@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,6 +14,7 @@ import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { Addresses } from 'src/entities/address.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { AccurateService } from 'src/integrate-accurate/accurate/accurate.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -32,6 +34,7 @@ export class SupplierService {
 
     @InjectRepository(Addresses)
     private addressRepo: Repository<Addresses>,
+    private readonly accurateService: AccurateService,
   ) {}
 
   private async generateSupplierCode(): Promise<string> {
@@ -53,6 +56,14 @@ export class SupplierService {
     return supplierCode;
   }
 
+  private async formatDateToDDMMYYYY(date: Date): Promise<string> {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // bulan dimulai dari 0
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+
   async create(dto: CreateSupplierDto): Promise<Supplier> {
     const existingSupplier = await this.findByEmail(dto.email);
     const existingAccount = await this.accountRepository.findOne({
@@ -65,12 +76,51 @@ export class SupplierService {
 
     const supplierCode = await this.generateSupplierCode();
 
-    // ✅ Create supplier WITHOUT cascade to avoid automatic saving
+    // 🔁 1. Siapkan payload Accurate lebih dulu
+    const accuratePayload = {
+      name: dto.name,
+      transDate: await this.formatDateToDDMMYYYY(new Date()),
+      vendorNo: supplierCode,
+      email: dto.email,
+      mobilePhone: dto.phone,
+      billStreet: dto.address,
+      billCity: dto.city,
+      billProvince: dto.province,
+      billPostalCode: dto.postalcode,
+      billCountry: 'ID',
+      taxCity: dto.city,
+      taxProvince: dto.province,
+      taxPostalCode: dto.postalcode,
+      taxCountry: 'ID',
+      taxStreet: dto.tax?.registeredAddress || dto.address,
+      npwpNo: dto.tax?.taxNumber || '',
+      wpName: dto.tax?.taxName || dto.name,
+      detailContact: [
+        {
+          name: dto.name,
+          email: dto.email,
+          mobilePhone: dto.phone,
+          salutation: 'MR',
+        },
+      ],
+    };
+
+    // 🔁 2. Simpan ke Accurate terlebih dahulu
+    try {
+      await this.accurateService.addVendorToAccurate(accuratePayload);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to sync vendor to Accurate');
+    }
+
+    // ✅ 3. Kalau berhasil, baru simpan internal
     const supplier = this.supplierRepo.create({
       name: dto.name,
       address: dto.address,
       phone: dto.phone,
       email: dto.email,
+      city: dto.city,
+      province: dto.province,
+      postalcode: dto.postalcode,
       supplier_code: supplierCode,
     });
     const savedSupplier = await this.supplierRepo.save(supplier);
@@ -85,13 +135,12 @@ export class SupplierService {
         postalcode: dto.addresses.postalcode,
         is_default: dto.addresses.is_default ?? false,
         is_deleted: dto.addresses.is_deleted ?? false,
-        ownerType: 'supplier', // ✅ Required field
-        ownerId: savedSupplier.id, // ✅ Required field
+        ownerType: 'supplier',
+        ownerId: savedSupplier.id,
       });
       await this.addressRepo.save(addressSupplier);
     }
 
-    // ✅ Save Tax Information EXPLICITLY with required fields
     if (dto.tax) {
       const tax = this.taxRepo.create({
         taxType: dto.tax.taxType,
@@ -100,13 +149,12 @@ export class SupplierService {
         registeredAddress: dto.tax.registeredAddress,
         isActive: dto.tax.isActive ?? true,
         isPrimary: dto.tax.isPrimary ?? false,
-        ownerType: 'supplier', // ✅ Required field
-        ownerId: savedSupplier.id, // ✅ Required field
+        ownerType: 'supplier',
+        ownerId: savedSupplier.id,
       });
       await this.taxRepo.save(tax);
     }
 
-    // ✅ Save Bank Accounts EXPLICITLY with required fields
     if (dto.bankAccounts && dto.bankAccounts.length > 0) {
       const banks = dto.bankAccounts.map((bank) =>
         this.bankAccountRepo.create({
@@ -115,14 +163,13 @@ export class SupplierService {
           accountName: bank.accountName,
           branch: bank.branch,
           isPrimary: bank.isPrimary ?? false,
-          ownerType: 'supplier', // ✅ Required field
-          ownerId: savedSupplier.id, // ✅ Required field
+          ownerType: 'supplier',
+          ownerId: savedSupplier.id,
         }),
       );
       await this.bankAccountRepo.save(banks);
     }
 
-    // Create account
     const passwordHash = await bcrypt.hash(dto.email, 10);
     const account = this.accountRepository.create({
       username: dto.email,
@@ -134,9 +181,9 @@ export class SupplierService {
     });
     await this.accountRepository.save(account);
 
-    // Return supplier with relations
     return this.findOne(savedSupplier.id);
   }
+
 
   async findAll(): Promise<{ data: Supplier[] }> {
     const suppliers = await this.supplierRepo.find();

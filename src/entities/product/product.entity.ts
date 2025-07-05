@@ -7,15 +7,21 @@ import {
   CreateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { Supplier } from './supplier.entity';
+import { Supplier } from '../supplier.entity';
 import { ProductPrice } from './product-price.entity';
 import { ProductBundleItem } from './product-bundle-item.entity';
 import { ProductTax } from './product-tax.entity';
 
 export enum InventoryType {
-  STOCK = 'stock',
-  SERVICE = 'service',
-  DIGITAL = 'digital',
+  STOCK = 'INVENTORY',
+  SERVICE = 'JASA',
+  BUNDLE = 'GROUP',
+  NON_INVENTORY = 'NON_INVENTORY',
+}
+
+export enum UoM {
+  PCS = 'PCS',
+  LOT = 'LOT',
 }
 
 @Entity('products')
@@ -52,6 +58,14 @@ export class Product {
 
   @Column({ type: 'int', default: 0 })
   stock: number;
+
+  @Column({
+    type: 'enum',
+    enum: UoM,
+    default: UoM.PCS,
+    nullable: true,
+  })
+  uom: string;
 
   @Column({
     type: 'enum',

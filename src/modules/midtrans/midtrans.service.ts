@@ -1,7 +1,7 @@
 import { Inject, forwardRef, Injectable, Logger } from '@nestjs/common';
 import * as midtransClient from 'midtrans-client';
 import { OrdersService } from '../orders/orders.service';
-import { Order } from 'src/entities/order.entity';
+import { Order } from 'src/entities/orders/order.entity';
 
 
 @Injectable()

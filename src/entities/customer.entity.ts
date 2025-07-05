@@ -1,5 +1,5 @@
 import { Entity, JoinColumn, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, OneToOne } from 'typeorm';
-import { Order } from './order.entity';
+import { Order } from './orders/order.entity';
 import { Account } from './account.entity';
 import { CustomerAddress } from './customer-address.entity';
 import { BankAccount } from './bank-account.entity';

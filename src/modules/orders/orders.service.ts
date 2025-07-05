@@ -5,20 +5,21 @@ import {
   Logger,ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, EntityManager } from 'typeorm';
-import { Order } from '../../entities/order.entity';
-import { OrderItem } from '../../entities/order-item.entity';
-import { Product } from '../../entities/product.entity';
+import { Repository, In, EntityManager, DataSource } from 'typeorm';
+import { Order } from '../../entities/orders/order.entity';
+import { OrderItem } from '../../entities/orders/order-item.entity';
+import { Product } from '../../entities/product/product.entity';
 import { Customer } from '../../entities/customer.entity';
 import { Supplier } from '../../entities/supplier.entity';
-import { OrderItemTax } from '../../entities/order-item-tax.entity';
+import { OrderItemTax } from '../../entities/orders/order-item-tax.entity';
 import { Tax } from '../../entities/tax.entity';
 import { Addresses } from '../../entities/address.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.entity';
 import { MidtransService } from '../midtrans/midtrans.service';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
-import { ProductBundleItem } from 'src/entities/product-bundle-item.entity';
+import { ProductBundleItem } from 'src/entities/product/product-bundle-item.entity';
+import { XenditService } from '../xendit/xendit.service'; // pastikan path sesuai
 
 // Konstanta untuk menghindari magic numbers dan hard-coded values
 const DEFAULT_TAX_NAME = 'PPN 11%';
@@ -65,6 +66,10 @@ export class OrdersService {
     private readonly supplierRepo: Repository<Supplier>,
 
     private readonly midtransService: MidtransService,
+
+    private readonly xenditService: XenditService,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -74,11 +79,14 @@ export class OrdersService {
    */
   async generateOrderNumber(supplierCode: string): Promise<string> {
     const datePart = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const prefix = `${supplierCode.toUpperCase()}-${datePart}`;
+    const prefix = `SO-${datePart}`;
+    // const prefix = `${supplierCode.toUpperCase()}-${datePart}`;
+    const timestamp = Math.floor(Date.now() / 1000); // dalam detik (bisa pakai milidetik juga)
 
-    try {
-      const latestOrder = await this.orderRepo
-        .createQueryBuilder('order')
+    return await this.dataSource.transaction(async (manager) => {
+      const latestOrder = await manager
+        .createQueryBuilder(Order, 'order')
+        .setLock('pessimistic_write') // lock row to avoid race condition
         .select('order.orderNumber')
         .where('order.orderNumber LIKE :prefix', { prefix: `${prefix}-%` })
         .orderBy('order.orderNumber', 'DESC')
@@ -88,16 +96,13 @@ export class OrdersService {
       let nextNumber = 1;
       if (latestOrder) {
         const parts = latestOrder.orderNumber.split('-');
-        const lastNum = parseInt(parts[2], 10); // ambil urutan terakhir
+        const lastNum = parseInt(parts[2], 10);
         nextNumber = lastNum + 1;
       }
 
-      const padded = String(nextNumber).padStart(ORDER_NUMBER_SUFFIX_LENGTH, '0');
-      return `${prefix}-${padded}`;
-    } catch (error) {
-      this.logger.error('Error generating order number', error);
-      throw new BadRequestException('Failed to generate order number');
-    }
+      // const padded = String(nextNumber).padStart(ORDER_NUMBER_SUFFIX_LENGTH, '0');
+      return `${prefix}-${timestamp}`;
+    });
   }
 
   /**
@@ -364,7 +369,7 @@ export class OrdersService {
    * Membuat items untuk sub-order dengan logika bundling/unbundling
    * Level 2: Bundling (beberapa product menjadi satu bundle)
    * Level 3: Unbundling (bundle dipecah menjadi individual products)
-   * 
+   *
    * @param mainOrderItems - Items dari order utama
    * @param targetSupplier - Supplier tujuan
    * @param defaultTax - Data tax default
@@ -629,7 +634,7 @@ export class OrdersService {
    * @param dto - Data order yang akan dibuat
    * @returns Promise dengan order yang telah dibuat
    */
-  async create(dto: CreateOrderDto): Promise<{ order: Order, snapToken: string }> {
+  async create(dto: CreateOrderDto): Promise<{ order: Order; snapToken: string }> {
     this.logger.log(`🚀 [LEVEL 1] Creating order for customer ID: ${dto.customerId}`);
 
     return await this.orderRepo.manager.transaction(async (manager) => {
@@ -642,6 +647,7 @@ export class OrdersService {
 
         // Step 3: Generate nomor order utama
         const orderNumber = await this.generateOrderNumber(supplier.supplier_code);
+        this.logger.log(`📦 Generated Order Number: ${orderNumber}`);
 
         // Step 4: Buat item order utama
         const { orderItems, total } = await this.createOrderItems(dto, products, defaultTax);
@@ -654,29 +660,24 @@ export class OrdersService {
           orderDate: new Date(),
           status: OrderStatus.PENDING,
           subTotal: total,
-          total: total + (dto.shippingCost || 0), // total + ongkir + pajak
+          total: total + (dto.shippingCost || 0),
           notes: dto.notes,
           deliveryAddress: dto.deliveryAddress,
           shippingCost: dto.shippingCost || 0,
           items: orderItems,
         });
 
-        // 🔥 Logging untuk debug
-        this.logger.log(`✅ [LEVEL 1] Main order created: ${orderNumber} (Total: ${mainOrder.total})`);
-        this.logger.log(`   └── Customer: ${customer.name} -> Supplier: ${supplier.name}`);
-        for (const item of orderItems) {
-          this.logger.log(`   └── ${item.product.product_code} x${item.quantity} @${item.price}`);
-        }
-
         // Step 6: Simpan main order
         const savedOrder = await manager.save(Order, mainOrder);
         this.logger.log(`💾 [LEVEL 1] Main order saved: ${savedOrder.orderNumber}`);
 
         // Step 7: Mulai proses create suborder (jika ada)
-        this.logger.log(`🔄 Starting 3-level order creation process...`);
-        await this.createSubOrderIfNeeded(manager, savedOrder, supplier, dto, defaultTax, 1);
+        // this.logger.log(`🔄 Starting 3-level order creation process...`);
+        // await this.createSubOrderIfNeeded(manager, savedOrder, supplier, dto, defaultTax, 1);
 
-        // Step 8: Generate Snap Token dari Midtrans
+        // ========== INTEGRASI PEMBAYARAN ==========
+        // Step 8 (A): Gunakan Midtrans (di-comment)
+        /*
         const snapToken = await this.midtransService.generateSnapToken({
           orderId: savedOrder.orderNumber,
           amount: savedOrder.total,
@@ -687,25 +688,41 @@ export class OrdersService {
           },
         });
 
-        // Step 9: Hitung expired token (misalnya 2 jam)
         const expiredAt = new Date();
-        expiredAt.setHours(expiredAt.getHours() + 2); // 2 jam
-
-        // Step 10: Simpan snapToken & expired ke order
+        expiredAt.setHours(expiredAt.getHours() + 2);
         savedOrder.snapToken = snapToken;
         savedOrder.snapTokenExpiredAt = expiredAt;
+        */
+
+        // Step 8 (B): Gunakan Xendit Invoice
+        const xenditInvoice = await this.xenditService.createInvoice({
+          externalId: savedOrder.orderNumber,
+          amount: savedOrder.total,
+          payerEmail: customer.email,
+          description: `Pembayaran Order #${savedOrder.orderNumber}`,
+        });
+
+        savedOrder.snapToken = xenditInvoice.invoice_url;
+        savedOrder.snapTokenExpiredAt = new Date(xenditInvoice.expiry_date);
+
+        // Step 9: Simpan order yg sudah punya invoice
         await manager.save(Order, savedOrder);
 
-        // Final logging
-        this.logger.log(`🎉 3-level order creation completed successfully!`);
+        // Step 10: Logging akhir
+        this.logger.log(`📨 Xendit invoice created: ${xenditInvoice.invoice_url}`);
+        this.logger.log(`🎉 Order complete: ${savedOrder.orderNumber}`);
 
-        return { order: savedOrder, snapToken };
+        return {
+          order: savedOrder,
+          snapToken: xenditInvoice.invoice_url,
+        };
       } catch (error) {
         this.logger.error('❌ Error creating order', error);
         throw error;
       }
     });
   }
+
 
   /**
    * Mengambil order tree (parent dan semua sub-orders)

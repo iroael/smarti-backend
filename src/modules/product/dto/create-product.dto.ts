@@ -15,9 +15,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // Inventory type enum
 export enum InventoryType {
-  STOCK = 'stock',
-  SERVICE = 'service',
-  DIGITAL = 'digital',
+  STOCK = 'INVENTORY',
+  SERVICE = 'JASA',
+  BUNDLE = 'GROUP',
+  NON_INVENTORY = 'NON_INVENTORY',
+}
+export enum UoM {
+  PCS = 'PCS',
+  LOT = 'LOT',
 }
 
 // DTO for product price
@@ -64,7 +69,7 @@ export class CreateProductDto {
   description?: string;
 
   @IsEnum(InventoryType)
-  @ApiProperty({ example: 'stock', enum: InventoryType })
+  @ApiProperty({ example: 'INVENTORY', enum: InventoryType })
   inventory_type: InventoryType;
 
   // ✅ Only validate stock if inventory_type is 'stock'
@@ -72,6 +77,11 @@ export class CreateProductDto {
   @ApiProperty({ example: 10, required: false })
   @IsInt()
   stock?: number;
+
+  @ValidateIf((o) => o.uom === UoM.PCS)
+  @ApiProperty({ example: "PCS", required: false })
+  @IsString()
+  uom?: string;
 
   @ApiPropertyOptional({ example: 1.5, description: 'Berat produk dalam kilogram' })
   @IsOptional()

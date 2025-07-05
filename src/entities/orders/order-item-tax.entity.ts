@@ -5,7 +5,7 @@ import {
   Column,
 } from 'typeorm';
 import { OrderItem } from './order-item.entity';
-import { Tax } from './tax.entity';
+import { Tax } from '../tax.entity';
 
 @Entity()
 export class OrderItemTax {

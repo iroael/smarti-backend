@@ -55,12 +55,12 @@ export class CreateAddressDto {
   is_deleted?: boolean;
 
   @ApiProperty({ enum: OwnerType, example: OwnerType.CUSTOMER })
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(OwnerType)
   ownerType: OwnerType;
 
   @ApiProperty({ example: 1 })
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
   ownerId: number;
 }

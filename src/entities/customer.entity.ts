@@ -1,13 +1,12 @@
 import { Entity, JoinColumn, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, OneToOne } from 'typeorm';
-import { Order } from './orders/order.entity';
-import { Account } from './account.entity';
-import { CustomerAddress } from './customer-address.entity';
-import { BankAccount } from './bank-account.entity';
 
 @Entity()
 export class Customer {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({unique: true, nullable: true})
+  customer_code: string;
 
   @Column()
   name: string;
@@ -36,12 +35,4 @@ export class Customer {
   @CreateDateColumn()
   createdAt: Date;
 
-  @OneToMany(() => Order, (order) => order.customer)
-  orders: Order[];
-
-  @OneToMany(() => CustomerAddress, (addr) => addr.customer, {
-    cascade: true,
-  })
-  addresses: CustomerAddress[];
-  
 }

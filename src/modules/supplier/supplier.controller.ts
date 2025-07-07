@@ -33,6 +33,7 @@ export class SupplierController {
   @ApiResponse({ status: 201, description: 'Supplier created', type: Supplier })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   create(@Body() dto: CreateSupplierDto) {
+    // console.log('Creating supplier with data:', dto);
     return this.supplierService.create(dto);
   }
 

@@ -96,6 +96,7 @@ export class CustomersController {
   @ApiOperation({ summary: 'Create new customer' })
   @ApiResponse({ status: 201, description: 'Customer created', type: Customer })
   async create(@Body() dto: CreateCustomerDto) {
+    // console.log('Creating controller customer with DTO:', dto);
     const customer = await this.customersService.create(dto);
     return this.sanitizeCustomer(customer);
   }

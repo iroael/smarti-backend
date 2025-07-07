@@ -63,7 +63,6 @@ export class SupplierService {
     return `${day}/${month}/${year}`;
   }
 
-
   async create(dto: CreateSupplierDto): Promise<Supplier> {
     const existingSupplier = await this.findByEmail(dto.email);
     const existingAccount = await this.accountRepository.findOne({
@@ -74,89 +73,74 @@ export class SupplierService {
       throw new ConflictException('Email already in use');
     }
 
+    console.log('Supplier data before saving:', dto);
     const supplierCode = await this.generateSupplierCode();
 
-    // 🔁 1. Siapkan payload Accurate lebih dulu
-    const accuratePayload = {
-      name: dto.name,
-      transDate: await this.formatDateToDDMMYYYY(new Date()),
-      vendorNo: supplierCode,
-      email: dto.email,
-      mobilePhone: dto.phone,
-      billStreet: dto.address,
-      billCity: dto.city,
-      billProvince: dto.province,
-      billPostalCode: dto.postalcode,
-      billCountry: 'ID',
-      taxCity: dto.city,
-      taxProvince: dto.province,
-      taxPostalCode: dto.postalcode,
-      taxCountry: 'ID',
-      taxStreet: dto.tax?.registeredAddress || dto.address,
-      npwpNo: dto.tax?.taxNumber || '',
-      wpName: dto.tax?.taxName || dto.name,
-      detailContact: [
-        {
-          name: dto.name,
-          email: dto.email,
-          mobilePhone: dto.phone,
-          salutation: 'MR',
-        },
-      ],
-    };
+    // ✅ Optional: safer npwp extraction
+    const npwpFromTax = (dto.tax ?? []).find(
+      (t) => t.taxType === 'npwp' && t.isActive && t.isPrimary,
+    )?.taxNumber;
 
-    // 🔁 2. Simpan ke Accurate terlebih dahulu
-    try {
-      await this.accurateService.addVendorToAccurate(accuratePayload);
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to sync vendor to Accurate');
-    }
-
-    // ✅ 3. Kalau berhasil, baru simpan internal
     const supplier = this.supplierRepo.create({
       name: dto.name,
+      kategori: dto.kategori,
       address: dto.address,
       phone: dto.phone,
       email: dto.email,
       city: dto.city,
       province: dto.province,
       postalcode: dto.postalcode,
+      npwp: npwpFromTax,
+      accurate_id: dto.accurate_id ?? undefined,
+      accurate_sc: dto.accurate_sc ?? undefined,
+      xendit_id: dto.xendit_id ?? undefined,
+      xendit_sc: dto.xendit_sc ?? undefined,
+      astat: dto.astat ?? undefined,
+      xstat: dto.xstat ?? undefined,
       supplier_code: supplierCode,
     });
+
     const savedSupplier = await this.supplierRepo.save(supplier);
 
-    if (dto.addresses) {
-      const addressSupplier = this.addressRepo.create({
-        name: dto.addresses.name,
-        phone: dto.addresses.phone,
-        city: dto.addresses.city,
-        province: dto.addresses.province,
-        address: dto.addresses.address,
-        postalcode: dto.addresses.postalcode,
-        is_default: dto.addresses.is_default ?? false,
-        is_deleted: dto.addresses.is_deleted ?? false,
-        ownerType: 'supplier',
-        ownerId: savedSupplier.id,
-      });
-      await this.addressRepo.save(addressSupplier);
+    // ✅ Save addresses (array)
+    if ((dto.addresses ?? []).length > 0) {
+      const addressEntities = (dto.addresses ?? []).map((addr) =>
+        this.addressRepo.create({
+          name: addr.name,
+          phone: addr.phone,
+          address: addr.address,
+          city: addr.city,
+          province: addr.province,
+          postalcode: addr.postalcode,
+          is_default: addr.is_default ?? false,
+          is_deleted: addr.is_deleted ?? false,
+          ownerType: 'supplier',
+          ownerId: savedSupplier.id,
+        }),
+      );
+      await this.addressRepo.save(addressEntities);
     }
 
-    if (dto.tax) {
-      const tax = this.taxRepo.create({
-        taxType: dto.tax.taxType,
-        taxNumber: dto.tax.taxNumber,
-        taxName: dto.tax.taxName,
-        registeredAddress: dto.tax.registeredAddress,
-        isActive: dto.tax.isActive ?? true,
-        isPrimary: dto.tax.isPrimary ?? false,
-        ownerType: 'supplier',
-        ownerId: savedSupplier.id,
-      });
-      await this.taxRepo.save(tax);
+    // ✅ Save taxes (array)
+    if ((dto.tax ?? []).length > 0) {
+      const taxEntities = (dto.tax ?? []).map((t) =>
+        this.taxRepo.create({
+          taxType: t.taxType,
+          taxNumber: t.taxNumber,
+          taxName: t.taxName,
+          registeredAddress: t.registeredAddress,
+          isActive: t.isActive ?? true,
+          isPrimary: t.isPrimary ?? false,
+          ownerType: 'supplier',
+          ownerId: savedSupplier.id,
+        }),
+      );
+      await this.taxRepo.save(taxEntities);
     }
 
-    if (dto.bankAccounts && dto.bankAccounts.length > 0) {
-      const banks = dto.bankAccounts.map((bank) =>
+    // ✅ Save bank accounts
+    if ((dto.bankAccounts ?? []).length > 0) {
+      const bankEntities = (dto.bankAccounts ?? []).map((bank) =>
         this.bankAccountRepo.create({
           bankName: bank.bankName,
           accountNumber: bank.accountNumber,
@@ -167,9 +151,10 @@ export class SupplierService {
           ownerId: savedSupplier.id,
         }),
       );
-      await this.bankAccountRepo.save(banks);
+      await this.bankAccountRepo.save(bankEntities);
     }
 
+    // ✅ Create internal account
     const passwordHash = await bcrypt.hash(dto.email, 10);
     const account = this.accountRepository.create({
       username: dto.email,
@@ -181,10 +166,48 @@ export class SupplierService {
     });
     await this.accountRepository.save(account);
 
+    // ✅ Build Accurate payload
+    const activeTax = dto.tax?.find((t) => t.taxType === 'npwp' && t.isActive);
+    const accuratePayload = {
+      name: dto.name,
+      transDate: await this.formatDateToDDMMYYYY(new Date()),
+      vendorNo: supplierCode,
+      email: dto.email,
+      mobilePhone: dto.phone,
+      billStreet: dto.address,
+      billCity: dto.city,
+      billProvince: dto.province,
+      billZipCode: dto.postalcode,
+      billCountry: 'ID',
+      taxCity: dto.city,
+      taxProvince: dto.province,
+      taxZipCode: dto.postalcode,
+      taxCountry: 'ID',
+      taxStreet: activeTax?.registeredAddress || dto.address,
+      npwpNo: activeTax?.taxNumber || '',
+      wpName: activeTax?.taxName || dto.name,
+      detailContact: [
+        {
+          name: dto.name,
+          email: dto.email,
+          mobilePhone: dto.phone,
+          salutation: 'MR',
+        },
+      ],
+    };
+
+    // ✅ Sync to Accurate
+    try {
+      await this.accurateService.addVendorToAccurate(accuratePayload);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to sync vendor to Accurate', error.message);
+    }
+
     return this.findOne(savedSupplier.id);
   }
-
-
+  /**
+   * Get all suppliers with bank accounts and tax identifications
+   */
   async findAll(): Promise<{ data: Supplier[] }> {
     const suppliers = await this.supplierRepo.find();
 
@@ -313,6 +336,11 @@ export class SupplierService {
     const supplier = await this.findOne(id);
     if (!supplier) throw new NotFoundException('Supplier not found');
 
+    await this.addressRepo.delete({
+      ownerType: 'supplier',
+      ownerId: id,
+    });
+
     await this.bankAccountRepo.delete({
       ownerType: 'supplier',
       ownerId: id,
@@ -325,10 +353,10 @@ export class SupplierService {
 
     // Optional: hapus akun jika ada entitas account
     await this.accountRepository.delete({ supplier: { id } }); // <-- Pastikan ini sesuai struktur kamu
-
+    // Hapus alamat terkait
+    await this.accurateService.deleteVendor(supplier.supplier_code);
     await this.supplierRepo.delete(id);
   }
-
 
   async findByEmail(email: string): Promise<Supplier | null> {
     return this.supplierRepo.findOne({ where: { email } });

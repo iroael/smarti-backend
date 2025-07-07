@@ -20,6 +20,7 @@ import { MidtransService } from '../midtrans/midtrans.service';
 import { OrderStatus } from 'src/common/enums/order-status.enum';
 import { ProductBundleItem } from 'src/entities/product/product-bundle-item.entity';
 import { XenditService } from '../xendit/xendit.service'; // pastikan path sesuai
+import { AccurateService } from 'src/integrate-accurate/accurate/accurate.service';
 
 // Konstanta untuk menghindari magic numbers dan hard-coded values
 const DEFAULT_TAX_NAME = 'PPN 11%';
@@ -70,6 +71,7 @@ export class OrdersService {
     private readonly xenditService: XenditService,
 
     private readonly dataSource: DataSource,
+    private readonly accurateService: AccurateService,
   ) {}
 
   /**
@@ -419,7 +421,7 @@ export class OrdersService {
     for (const group of itemGroups) {
       // Cari bundle product yang sesuai di target supplier
       const bundleProduct = await this.findBundleProduct(group, targetSupplier);
-      
+
       if (bundleProduct) {
         const bundleItem = await this.createBundleOrderItem(
           bundleProduct,
@@ -427,7 +429,7 @@ export class OrdersService {
           defaultTax
         );
         bundledItems.push(bundleItem);
-        
+
         this.logger.log(`✅ [Bundling] Created bundle: ${bundleProduct.product_code} (${group.length} items bundled)`);
       } else {
         // Fallback: buat individual items jika tidak ada bundle
@@ -628,6 +630,53 @@ export class OrdersService {
     });
   }
 
+  private formatDateToDDMMYYYY(date: Date): string {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // bulan dimulai dari 0
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  private async buildSalesOrderPayload(order: Order): Promise<any> {
+    const deliveryAddress = order.deliveryAddress;
+
+    const address = await this.addressRepo.findOne({
+      where: { id: deliveryAddress },
+    });
+
+    return {
+      number: order.orderNumber,
+      transDate: this.formatDateToDDMMYYYY(new Date()), // DD/MM/YYYY
+      customerNo: order.customer?.customer_code,
+      toAddress: address?.address || '', // fallback jika address tidak ditemukan
+      description: order.notes,
+      inclusiveTax: true,
+      taxable: true,
+      currencyCode: 'IDR',
+      cashDiscount: 0,
+      cashDiscPercent: '0',
+      detailItem: order.items.map((item) => ({
+        itemNo: item.product.product_code,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        itemUnitName: 'PCS', // sesuaikan satuan dari sistem jika dinamis
+        useTax1: true,
+        useTax2: false,
+        useTax3: false,
+        detailName: item.product.name,
+        salesmanListNumber: [],
+      })),
+      // detailExpense: order.shippingCost > 0 ? [
+      //   {
+      //     expenseName: 'Shipping',
+      //     expenseAmount: order.shippingCost,
+      //     expenseNotes: 'Shipping Cost',
+      //   },
+      // ] : [],
+    };
+  }
+
+
   /**
    * Membuat order baru dengan validasi lengkap dan transaction
    * Menangani scenario 3 level order creation secara otomatis
@@ -711,7 +760,10 @@ export class OrdersService {
         // Step 10: Logging akhir
         this.logger.log(`📨 Xendit invoice created: ${xenditInvoice.invoice_url}`);
         this.logger.log(`🎉 Order complete: ${savedOrder.orderNumber}`);
-
+        // Step 11 : integrasi dengan accurate
+        const accuratePayload = await this.buildSalesOrderPayload(savedOrder);
+        await this.accurateService.createSalesOrder(accuratePayload);
+        this.logger.log(`📤 Sales order sent to Accurate for order: ${savedOrder.orderNumber}`);
         return {
           order: savedOrder,
           snapToken: xenditInvoice.invoice_url,
@@ -723,18 +775,17 @@ export class OrdersService {
     });
   }
 
-
   /**
    * Mengambil order tree (parent dan semua sub-orders)
    */
   async findOrderTree(orderId: string): Promise<Order> {
     const order = await this.findOne(orderId);
-    
+
     // Jika ini adalah sub-order, ambil parent order
     if (order.parentOrder) {
       return await this.findOrderTree(order.parentOrder.id);
     }
-    
+
     // Jika ini adalah main order, ambil semua sub-orders secara recursive
     return await this.populateSubOrders(order);
   }

@@ -14,6 +14,7 @@ import { XenditModule } from '../xendit/xendit.module'; // <-- Import MidtransMo
 import { SupplierSupplierAccess } from 'src/entities/supplier-supplier-access.entity';
 import { Addresses } from 'src/entities/address.entity';
 import { ProductBundleItem } from 'src/entities/product/product-bundle-item.entity';
+import { AccurateModule } from 'src/integrate-accurate/accurate/accurate.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ProductBundleItem } from 'src/entities/product/product-bundle-item.enti
     TypeOrmModule.forFeature([Order, OrderItem, Product, ProductBundleItem, Customer, Supplier, Tax, OrderItemTax, SupplierSupplierAccess, Addresses]),
     forwardRef(() => MidtransModule),
     forwardRef(() => XenditModule), // <-- Import XenditModule
+    AccurateModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

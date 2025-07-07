@@ -90,7 +90,8 @@ export class CreateCustomerDto {
   email: string;
 
   @ApiProperty({ example: 'securePassword123' })
-  @IsNotEmpty()
+  @IsOptional()
+  @IsString()
   @MinLength(6)
   password: string;
 
@@ -119,17 +120,17 @@ export class CreateCustomerDto {
   @IsString()
   postalcode: string;
 
-  @ApiProperty({ type: () => CreateAddressDto, required: false })
+  @ApiProperty({ type: () => [CreateAddressDto], required: false })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ each: true })
   @Type(() => CreateAddressDto)
-  addresses?: CreateAddressDto;
+  addresses?: CreateAddressDto[];
 
-  @ApiProperty({ type: () => TaxDto, required: false })
+  @ApiProperty({ type: () => [TaxDto], required: false })
   @IsOptional()
-  @ValidateNested()
+  @ValidateNested({ each: true })
   @Type(() => TaxDto)
-  tax?: TaxDto;
+  tax?: TaxDto[];
 
   @ApiProperty({ type: () => [BankAccountDto], required: false })
   @IsOptional()

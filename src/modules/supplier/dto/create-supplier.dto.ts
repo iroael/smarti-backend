@@ -16,6 +16,14 @@ enum TaxType {
   OTHERS = 'others',
 }
 
+export enum KategoriEnum {
+  Admin = 'Admin',
+  KSO = 'KSO',
+  Vendor = 'Vendor',
+  Provider = 'Provider',
+  ISP = 'ISP',
+}
+
 class TaxDto {
   @ApiProperty({
     example: TaxType.NPWP,
@@ -123,6 +131,11 @@ class AddSupplierAddressDto {
 }
 
 export class CreateSupplierDto {
+  @ApiProperty({ enum: KategoriEnum, example: KategoriEnum.Vendor })
+  @IsNotEmpty()
+  @IsEnum(KategoriEnum)
+  kategori: KategoriEnum;
+
   @ApiProperty({ example: 'PT. Sumber Makmur' })
   @IsNotEmpty()
   @IsString()
@@ -162,17 +175,51 @@ export class CreateSupplierDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => AddSupplierAddressDto)
-  addresses?: AddSupplierAddressDto;
+  addresses?: AddSupplierAddressDto[];
 
   @ApiProperty({ type: () => TaxDto, required: false })
   @IsOptional()
   @ValidateNested()
   @Type(() => TaxDto)
-  tax?: TaxDto;
+  tax?: TaxDto[];
 
   @ApiProperty({ type: () => [BankAccountDto], required: false })
   @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => BankAccountDto)
   bankAccounts?: BankAccountDto[];
+
+  @ApiProperty({ example: '123456789011234' })
+  @IsOptional()
+  @IsString()
+  npwp: string;
+
+  @ApiProperty({ example: '123456789011234' })
+  @IsOptional()
+  @IsString()
+  accurate_id: string;
+
+  @ApiProperty({ example: '123456789011234' })
+  @IsOptional()
+  @IsString()
+  accurate_sc: string;
+  @ApiProperty({ example: '123456789011234' })
+  @IsOptional()
+  @IsString()
+  xendit_id: string;
+
+  @ApiProperty({ example: '123456789011234' })
+  @IsOptional()
+  @IsString()
+  xendit_sc: string;
+
+  @ApiProperty({ example: 'false' })
+  @IsOptional()
+  @IsBoolean()
+  astat: boolean;
+
+  @ApiProperty({ example: 'false' })
+  @IsOptional()
+  @IsBoolean()
+  xstat: boolean;
 }

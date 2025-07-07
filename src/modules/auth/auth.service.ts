@@ -6,7 +6,6 @@ import { JwtService } from '@nestjs/jwt';
 import { Account } from 'src/entities/account.entity';
 import { Customer } from 'src/entities/customer.entity';
 import { BankAccount } from 'src/entities/bank-account.entity';
-import { CustomerAddress } from 'src/entities/customer-address.entity';
 import { Addresses } from 'src/entities/address.entity';
 import { TaxIdentification } from 'src/entities/tax-identifications.entity';
 import { Role } from 'src/common/enums/role.enum';

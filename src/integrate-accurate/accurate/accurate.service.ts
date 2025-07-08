@@ -7,8 +7,8 @@ import { CreateItemDto } from './dto/create-item.dto';
 @Injectable()
 export class AccurateService {
   constructor(private readonly httpService: HttpService) {}
-  private readonly signatureVendor = ''; // langsung didefinisikan di class
-  private readonly token = ''; // token static, atau dari login awal
+  private readonly signatureVendor = 'q2k4CAb6zFmVjquNkheEw5Jk7o9P15EQ4s2stYSH09uyWCWCKm1aecTha1pyCVXD'; // langsung didefinisikan di class
+  private readonly token = 'aat.NTA.eyJ2IjoxLCJ1Ijo5MzA4NDksImQiOjE5MzQzOTYsImFpIjo1NzAwMiwiYWsiOiJlNzJiMmRlMS0wZmI3LTQ0N2ItOTI3Ny01ZjQyMzc5NTc0YWIiLCJhbiI6Imtpc3NUZXN0IiwiYXAiOiJiYTZjMTZmMy00MzQzLTRlODEtYjYxZC1iYjJiMjc2YjlmNmYiLCJ0IjoxNzUxNjAxMjExNzAyfQ.XoIX2cMc0qZrCTTnM2FcBsE/XjUUqOIo+pTonP/2rzPaYxN6XemyK0OJsmy1ZAq+29EblFqb4Gq8idEDLB5oA72teTxm2tGMPb5zrC16vX4c/o+qmfGae+YNWmMLC8BMApLD1CSZD4pYS2QxH+MZGcp37CiUn+Lj3LPGbl6y2SfflO934LhO3mC+OjUwgV6qT5UE9U45b40=.rqbPaNiRtzhMPZiDGDs0z0B9HHv7yObKCB+DNj2Eijc'; // token static, atau dari login awal
 
   /**
    * Menghasilkan header Accurate (signature & timestamp),
